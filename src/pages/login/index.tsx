@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { authApi } from "../../service/auth.api";
@@ -10,7 +10,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const setTokens = useAuthStore(s => s.setTokens)
+  const { accessToken, isTokenExpiring, setTokens } = useAuthStore();
+
+  // Check if user already has valid token and redirect
+  useEffect(() => {
+    if (accessToken && !isTokenExpiring()) {
+      navigate(PATH.PRODUCTS);
+    }
+  }, [accessToken, isTokenExpiring, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

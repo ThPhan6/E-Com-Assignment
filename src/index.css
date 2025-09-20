@@ -91,3 +91,10 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* number of lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

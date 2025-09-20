@@ -8,6 +8,7 @@ interface DecodedToken {
 
 interface AuthState {
   user: IUser | null;
+  setUser: (user: IUser) => void;
   accessToken: string | null;
   refreshToken: string | null;
   setTokens: (access: string, refresh: string) => void;
@@ -17,6 +18,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  setUser: (user) => set({ user }),
   accessToken: localStorage.getItem("accessToken"),
   refreshToken: localStorage.getItem("refreshToken"),
   setTokens: (accessToken, refreshToken) => {
