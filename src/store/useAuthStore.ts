@@ -14,6 +14,7 @@ interface AuthState {
   setTokens: (access: string, refresh: string) => void;
   clearTokens: () => void;
   isTokenExpiring: () => boolean;
+  reset: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -44,5 +45,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (_e) {
       return true;
     }
+  },
+  reset: () => {
+    set({ user: null, accessToken: null, refreshToken: null });
   },
 }));

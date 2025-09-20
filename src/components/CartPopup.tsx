@@ -1,17 +1,20 @@
 import * as Popover from "@radix-ui/react-popover";
-import { useCartStore } from "../store/useCartStore";
+import {
+  getProductFromUserCartItems,
+  selectorTotalPrice,
+  useCartStore,
+} from "../store/useCartStore";
+import { getLocalStorageValues } from "../lib/helper";
 
 export default function CartPopup() {
-  const items = useCartStore((s) => s.items);
+  const userCarts = useCartStore((s) => s.userCarts);
+  const cartItems = getProductFromUserCartItems(userCarts);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
-  const totalPrice = useCartStore((s) => {
-    return s.items.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0
-    );
-  });
+  const { accessToken } = getLocalStorageValues(["accessToken"]);
+
+  const totalPrice = selectorTotalPrice(userCarts);
 
   const handleQuantityChange = (id: number, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -22,11 +25,17 @@ export default function CartPopup() {
   };
 
   const handleCheckout = () => {
+    if (!accessToken) {
+      return;
+    }
     alert("Checkout page coming soon 🚧");
     // navigate(PATH.CHECKOUT || "/checkout");
   };
 
   const handleClearCart = () => {
+    if (!accessToken) {
+      return;
+    }
     if (window.confirm("Are you sure you want to clear your cart?")) {
       clearCart();
     }
@@ -53,7 +62,7 @@ export default function CartPopup() {
         </Popover.Close>
       </div>
 
-      {items.length === 0 ? (
+      {Object.values(cartItems).length === 0 ? (
         <div className="text-center py-8">
           <svg
             className="w-16 h-16 text-gray-300 mx-auto mb-4"
@@ -76,7 +85,7 @@ export default function CartPopup() {
       ) : (
         <>
           <div className="max-h-96 overflow-y-auto space-y-4 mb-4">
-            {items.map((item) => (
+            {Object.values(cartItems).map((item) => (
               <div
                 key={item.id}
                 className="flex items-center justify-between space-x-3 p-3 bg-gray-50 rounded-lg"
@@ -106,7 +115,10 @@ export default function CartPopup() {
                 <div className="flex items-center">
                   <button
                     onClick={() =>
-                      handleQuantityChange(item.id, item.quantity - 1)
+                      handleQuantityChange(
+                        item.id,
+                        Math.max(0, (item.quantity ?? 0) - 1)
+                      )
                     }
                     className="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600"
                   >
@@ -117,10 +129,15 @@ export default function CartPopup() {
                   </span>
                   <button
                     onClick={() =>
-                      handleQuantityChange(item.id, item.quantity + 1)
+                      handleQuantityChange(
+                        item.id,
+                        Math.max(0, (item.quantity ?? 0) + 1)
+                      )
                     }
                     className="px-2 h-6 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600"
-                    disabled={item.stock ? item.quantity >= item.stock : false}
+                    disabled={
+                      !accessToken || (item.quantity ?? 0) + 1 > item.stock
+                    }
                   >
                     +
                   </button>
@@ -128,6 +145,7 @@ export default function CartPopup() {
                 <button
                   onClick={() => removeItem(item.id)}
                   className="text-red-500 hover:text-red-700 p-1"
+                  disabled={!accessToken}
                 >
                   <svg
                     className="w-4 h-4"

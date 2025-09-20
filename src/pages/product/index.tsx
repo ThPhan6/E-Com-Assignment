@@ -5,32 +5,27 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { debounce } from "lodash";
-import { useAuthStore } from "../../store/useAuthStore";
 import { useCartStore } from "../../store/useCartStore";
 import { productApi } from "../../service/product.api";
-import type { Product } from "../../service/product.api";
-import { PATH } from "../../lib/route";
 import ProductCard from "../../components/ProductCard";
+import { useProductStore } from "../../store/useProductStore";
 
 const ITEMS_PER_PAGE = 20;
 
 export default function ProductListPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const products = useProductStore((s) => s.products);
+  const setProducts = useProductStore((s) => s.setProducts);
+
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [stockAdjustments, setStockAdjustments] = useState<
-    Record<number, number>
-  >({});
 
-  const navigate = useNavigate();
-  const { accessToken } = useAuthStore();
-  const addItem = useCartStore((s) => s.addItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const addItem = useCartStore((s) => s.addItem);
   const getItemQuantity = useCartStore((s) => s.getItemQuantity);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,18 +35,6 @@ export default function ProductListPage() {
   useEffect(() => {
     searchRef.current = searchQuery;
   }, [searchQuery]);
-
-  // Sync stock adjustments with cart changes
-  useEffect(() => {
-    const cartItems = useCartStore.getState().items;
-    const newAdjustments: Record<number, number> = {};
-
-    cartItems.forEach((item) => {
-      newAdjustments[item.id] = item.quantity;
-    });
-
-    setStockAdjustments(newAdjustments);
-  }, []);
 
   /**
    * fetchProducts now accepts `queryParam`. If not provided, it reads from `searchRef.current`
@@ -86,11 +69,9 @@ export default function ProductListPage() {
           setProducts(newProducts);
           setHasMore(newProducts.length < total);
         } else {
-          setProducts((prev) => {
-            const updated = [...prev, ...newProducts];
-            setHasMore(updated.length < total);
-            return updated;
-          });
+          const updatedProducts = [...products, ...newProducts];
+          setHasMore(updatedProducts.length < total);
+          setProducts(updatedProducts);
         }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_err) {
@@ -99,7 +80,7 @@ export default function ProductListPage() {
         setLoading(false);
       }
     },
-    [loading, products.length]
+    [loading, products, setProducts]
   );
 
   // Auto-fetch if content height < window height
@@ -151,41 +132,25 @@ export default function ProductListPage() {
     debouncedFetchProducts(value); // debounce the API call and pass exact query
   };
 
-  // --- cart handlers (unchanged) ---
-  const handleAddToCart = (product: Product) => {
-    if (!accessToken) {
-      navigate(PATH.LOGIN);
+  const handleQuantityChange = (productId: number, newQuantity: number) => {
+    if (newQuantity < 0) return;
+
+    const currentQuantity = getItemQuantity(productId);
+
+    // If item exists or newQuantity is zero, just update
+    if (currentQuantity > 0 || newQuantity === 0) {
+      updateQuantity(productId, newQuantity);
       return;
     }
 
-    const currentStock = getCurrentStock(product);
-    if (currentStock <= 0) return;
+    // Item doesn't exist in cart and newQuantity > 0 → add it
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
 
-    const existingQuantity = getItemQuantity(product.id);
-    if (existingQuantity > 0) {
-      updateQuantity(product.id, existingQuantity + 1);
-    } else {
-      addItem({
-        id: product.id,
-        title: product.title,
-        price: product.price,
-        thumbnail: product.thumbnail,
-        stock: product.stock,
-      });
-    }
-  };
+    addItem({ id: product.id, stock: product.stock });
 
-  const handleQuantityChange = (productId: number, newQuantity: number) => {
-    if (newQuantity < 0) return;
-    updateQuantity(productId, newQuantity);
-  };
-
-  // Get current stock for a product (original stock - cart quantity)
-  const getCurrentStock = (product: Product) => {
-    const cartQuantity = getItemQuantity(product.id);
-    const originalStock = product.stock;
-    const adjustment = stockAdjustments[product.id] || 0;
-    return Math.max(0, originalStock - cartQuantity - adjustment);
+    // If newQuantity > 1, update to desired quantity
+    if (newQuantity > 1) updateQuantity(productId, newQuantity);
   };
 
   return (
@@ -254,7 +219,6 @@ export default function ProductListPage() {
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={handleAddToCart}
                 onQuantityChange={handleQuantityChange}
               />
             ))}

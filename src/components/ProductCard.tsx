@@ -1,49 +1,39 @@
 import { useState } from "react";
-import { useCartStore } from "../store/useCartStore";
-import type { Product } from "../service/product.api";
-import { PATH } from "../lib/route";
-import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/useAuthStore";
+import { selectorRemainingStock, useCartStore } from "../store/useCartStore";
+import { getLocalStorageValues } from "../lib/helper";
+import type { Product } from "../types/product";
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Product) => void;
   onQuantityChange: (productId: number, newQuantity: number) => void;
 }
 
 export default function ProductCard({
   product,
-  onAddToCart,
+  onQuantityChange,
 }: ProductCardProps) {
-  const navigate = useNavigate();
-  const { accessToken } = useAuthStore();
+  const { accessToken } = getLocalStorageValues(["accessToken"]);
 
-  // Store reference quantity in cart
-  const cartQuantity = useCartStore((s) => {
-    const item = s.items.find((item) => item.id === product.id);
-    return item ? item.quantity : 0;
-  });
+  const userCarts = useCartStore((s) => s.userCarts);
+  const getItemQuantity = useCartStore((s) => s.getItemQuantity);
 
   // Local quantity state (decoupled from cart)
   const [localQuantity, setLocalQuantity] = useState(0);
 
-  const getCurrentStock = () => {
-    return Math.max(0, product.stock - cartQuantity - localQuantity);
-  };
-
-  const currentStock = getCurrentStock();
-  const isOutOfStock = currentStock <= 0;
+  // Use the shared stock calculation logic for cart quantities only
+  const remainingStockAfterCart = selectorRemainingStock(
+    product.id,
+    product.stock,
+    userCarts
+  );
+  // Current available stock = remaining after cart - local quantity
+  const currentStock = Math.max(0, remainingStockAfterCart - localQuantity);
+  const isOutOfStock = remainingStockAfterCart <= 0;
 
   const handleAddToCart = () => {
-    if (!accessToken) {
-      navigate(PATH.LOGIN);
-      return;
-    }
-    if (localQuantity <= 0 || currentStock < 0) return;
-
-    for (let i = 0; i < localQuantity; i++) {
-      onAddToCart(product);
-    }
+    // Get current cart quantity and add the local quantity
+    const currentCartQuantity = getItemQuantity(product.id);
+    onQuantityChange(product.id, currentCartQuantity + localQuantity);
     setLocalQuantity(0);
   };
 
@@ -63,11 +53,6 @@ export default function ProductCard({
             target.src = "https://via.placeholder.com/300x200?text=No+Image";
           }}
         />
-        {isOutOfStock && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <span className="text-black font-bold text-lg">Out of Stock</span>
-          </div>
-        )}
       </div>
 
       <div className="p-4">
@@ -83,39 +68,43 @@ export default function ProductCard({
           <span className="text-lg font-bold text-green-600">
             ${product.price}
           </span>
-          <span className="text-sm text-gray-500">Stock: {currentStock}</span>
+          <span className="text-sm text-gray-500">
+            Stock: {remainingStockAfterCart}
+          </span>
         </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setLocalQuantity((q) => Math.max(0, q - 1))}
-              disabled={isOutOfStock || localQuantity <= 0}
-              className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 
-             hover:bg-gray-300 
-             disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-200"
+              disabled={!accessToken || isOutOfStock || localQuantity <= 0}
+              className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-200 disabled:border-none"
             >
               -
             </button>
             <span className="w-8 text-center font-medium">{localQuantity}</span>
             <button
               onClick={() =>
-                setLocalQuantity((q) => (q < currentStock ? q + 1 : q))
+                setLocalQuantity((q) =>
+                  q < remainingStockAfterCart ? q + 1 : q
+                )
               }
-              disabled={isOutOfStock || localQuantity >= currentStock}
-              className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 
-             hover:bg-gray-300 
-             disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-200"
+              disabled={
+                !accessToken ||
+                isOutOfStock ||
+                localQuantity >= remainingStockAfterCart
+              }
+              className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-200 disabled:border-none"
             >
               +
             </button>
           </div>
           <button
             onClick={handleAddToCart}
-            disabled={isOutOfStock || localQuantity <= 0}
+            disabled={!accessToken || isOutOfStock || currentStock < 0}
             className="px-4 py-2 rounded-lg font-medium transition-colors 
-             bg-green-500 hover:bg-green-600 text-black 
-             disabled:bg-gray-300 disabled:text-gray-500 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-300"
+             bg-green-500 hover:bg-green-600 text-black disabled:text-red
+             disabled:bg-gray-300 disabled:text-gray-500 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-300 disabled:border-none disabled:outline-none disabled:hover:text-red-500"
           >
             {isOutOfStock ? "Out of Stock" : "Add"}
           </button>
