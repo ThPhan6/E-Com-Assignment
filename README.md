@@ -4,7 +4,7 @@ A modern e-commerce application built with React, TypeScript, and Tailwind CSS. 
 
 ## 🚀 Live Demo
 
-**Deployment URL:** https://e-com-assignment.vercel.app/login
+**Deployment URL:** https://e-com-assignment-git-main-ths-projects-62ac834c.vercel.app
 
 ## 🛠️ Tech Stack
 
@@ -25,31 +25,26 @@ A modern e-commerce application built with React, TypeScript, and Tailwind CSS. 
 
 ```
 src/
-├── api/                    # API configuration
+├── api/
 │   └── axiosClient.ts      # Axios instance with interceptors
-├── components/             # Reusable components
-│   ├── CountryStateSelector.tsx
+├── components/
 │   └── Image.tsx          # Lazy loading image component
-├── features/              # Feature-specific components
+├── features/
 │   ├── CartPopup.tsx      # Shopping cart popup
 │   ├── Layout.tsx         # Main layout wrapper
 │   ├── Loading.tsx       # Loading spinner
 │   ├── NavBar.tsx        # Navigation bar
 │   ├── ProductCard.tsx   # Product display card
 │   └── ProtectedRoute.tsx # Route protection
-├── hooks/                 # Custom React hooks
+├── hooks/
 │   ├── useCheckout.ts    # Checkout logic
 │   ├── useLogin.ts       # Authentication logic
 │   └── useProduct.ts     # Product management
-├── lib/                   # Utility libraries
+├── lib/
 │   ├── constant.ts       # App constants
 │   ├── helper.ts         # Helper functions
 │   └── route.ts          # Route definitions
-├── components/            # Reusable components
-│   ├── AppRouter.tsx     # Main application router
-│   ├── PublicRoutes.tsx  # Public route definitions
-│   └── PrivateRoutes.tsx # Private route definitions
-├── pages/                 # Page components
+├── pages/
 │   ├── 404/              # 404 Not Found page
 │   │   └── index.tsx
 │   ├── 403/              # 403 Forbidden page
@@ -59,30 +54,27 @@ src/
 │   │   │   ├── CheckoutFormStep.tsx
 │   │   │   └── schema.ts
 │   │   └── index.tsx
-│   ├── design-presentation/ # Design presentation page
-│   │   └── index.tsx
 │   ├── login/            # Login page
-│   ├── order-confirmation/ # Order success page (protected)
+│   ├── order-confirmation/ # Order success page
 │   └── product/          # Product listing
-├── service/              # API services
+├── service/
 │   ├── auth.api.ts       # Authentication APIs
 │   ├── cart.api.ts       # Cart management APIs
 │   ├── product.api.ts    # Product APIs
 │   └── user.api.ts       # User management APIs
-├── store/                # Zustand stores
+├── store/
 │   ├── useAuthStore.ts   # Authentication state
 │   ├── useCartStore.ts   # Shopping cart state
 │   ├── useLoadingStore.ts # Loading states
 │   ├── useOrderStore.ts  # Order management
 │   ├── useProductStore.ts # Product state
 │   └── util.ts           # Store utilities
-├── types/                 # TypeScript definitions
+├── types/
 │   ├── cart.ts           # Cart types
 │   ├── checkout.ts       # Checkout types
 │   ├── product.ts        # Product types
 │   └── user.ts           # User types
-└── utils/                # Utility functions
-    └── (error handling moved to api/axiosClient.ts)
+└──
 ```
 
 ## 🚀 Getting Started
@@ -131,6 +123,21 @@ src/
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 
+## 🧩 Challenges and considerations during implementation
+
+- Ensuring the authentication flow is secure
+- Refactoring useCartStore for better local data management
+- Implementing lazy-loaded images for an improved loading experience
+
+## 🥚 Edge cases(tested)
+
+- Display /404 page when user enters an invalid URL
+- Display /403 page when local token is manually deleted
+- Prevent cart to card, checkout, payment, or search actions when token is missing
+- Throttle clicks to prevent spam actions
+- Handle API errors gracefully
+- Auto-fill products to fill the viewport
+
 ## 🔧 Implementation Details
 
 ### 1. Authentication System
@@ -156,7 +163,7 @@ src/
 
 **Key Features:**
 
-- Debounced search (500ms delay)
+- Debounced search (700ms delay)
 - Auto-fill content when viewport is not full
 - Stock availability tracking
 - Optimized image loading
@@ -179,7 +186,6 @@ src/
 
 - **Multi-Step Form:** Comprehensive shipping and payment information
 - **Form Validation:** Real-time validation with Zod schema
-- **Address Management:** Country/state/city selection with auto-completion
 - **Payment Simulation:** Credit card formatting and validation
 - **Order Simulation:** Complete order flow with API integration
 
@@ -187,17 +193,7 @@ src/
 
 - Real-time form validation
 - Auto-formatting for card numbers
-- Address auto-completion
 - Order confirmation with summary
-
-### 5. State Management
-
-- **Zustand Stores:** Lightweight state management
-- **Persistent Storage:** Cart and authentication persistence
-- **Optimistic Updates:** Immediate UI updates with error handling
-- **Type Safety:** Full TypeScript integration
-
-## 🔍 API Integration
 
 ### DummyJSON Endpoints Used
 
@@ -217,42 +213,5 @@ src/
   - `PUT /users/{id}` - Update user information
 
 - **Cart Management:**
+
   - `DELETE /carts/{id}` - Clear user cart
-
-## 🚧 Challenges & Considerations
-
-### 1. **API Limitations**
-
-- **Challenge:** DummyJSON doesn't persist data changes
-- **Solution:** Implemented local state management with Zustand
-- **Consideration:** Simulated order process with local state updates
-
-### 2. **Authentication Flow**
-
-- **Challenge:** Token expiration and refresh handling
-- **Solution:** Automatic token refresh with expiration detection
-- **Consideration:** Secure token storage and session management
-
-### 3. **Performance Optimization**
-
-- **Challenge:** Large product lists and image loading
-- **Solution:** Infinite scroll with lazy loading
-- **Consideration:** Debounced search and optimized rendering
-
-### 4. **State Synchronization**
-
-- **Challenge:** Cart state across multiple components
-- **Solution:** Centralized Zustand store with persistence
-- **Consideration:** Real-time updates and error handling
-
-### 5. **Form Validation**
-
-- **Challenge:** Complex checkout form with multiple validation rules
-- **Solution:** Zod schema with React Hook Form integration
-- **Consideration:** Real-time validation and user feedback
-
-### 6. **Error Handling**
-
-- **Challenge:** API failures and network issues
-- **Solution:** Comprehensive error handling with retry logic
-- **Consideration:** User-friendly error messages and recovery
