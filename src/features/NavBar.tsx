@@ -1,38 +1,28 @@
 import { useNavigate } from "react-router-dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
-import { useEffect, useCallback } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { selectorTotalItems, useCartStore } from "../store/useCartStore";
 import { PATH } from "../lib/route";
 import CartPopup from "./CartPopup";
-import { authApi } from "../service/auth.api";
 import { NAV_BAR_HEIGHT } from "../lib/constant";
 import { resetAllStores } from "../store/util";
+import { hideLoading } from "../store/useLoadingStore";
 
 export default function NavBar() {
   const navigate = useNavigate();
 
   const user = useAuthStore((s) => s.user);
   const clearTokens = useAuthStore((s) => s.clearTokens);
-  const setUser = useAuthStore((s) => s.setUser);
 
   const userCarts = useCartStore((s) => s.userCarts);
   const cartItemCount = selectorTotalItems(userCarts);
 
-  const fetchUser = useCallback(async () => {
-    const user = await authApi.me();
-    setUser(user.data);
-  }, [setUser]);
-
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
   const handleLogout = () => {
     clearTokens();
     resetAllStores();
-    navigate(PATH.LOGIN);
+    hideLoading();
+    navigate(PATH.LOGIN, { replace: true });
   };
 
   if (!user) return null;

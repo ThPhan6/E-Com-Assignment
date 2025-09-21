@@ -1,10 +1,6 @@
 import { create } from "zustand";
-import { jwtDecode } from "jwt-decode";
 import type { IUser } from "../types/user";
-
-interface DecodedToken {
-  exp: number; // unix timestamp
-}
+import { isTokenValid } from "../lib/tokenHelper";
 
 interface AuthState {
   user: IUser | null;
@@ -13,11 +9,11 @@ interface AuthState {
   refreshToken: string | null;
   setTokens: (access: string, refresh: string) => void;
   clearTokens: () => void;
-  isTokenExpiring: () => boolean;
+  isAuthenticated: () => boolean;
   reset: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
   accessToken: localStorage.getItem("accessToken"),
@@ -32,19 +28,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem("refreshToken");
     set({ accessToken: null, refreshToken: null });
   },
-  isTokenExpiring: () => {
-    const token = get().accessToken;
-    if (!token) return true;
-
-    try {
-      const decoded: DecodedToken = jwtDecode(token);
-      const now = Math.floor(Date.now() / 1000);
-      // refresh if less than 1 min left
-      return decoded.exp - now < 60;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_e) {
-      return true;
-    }
+  isAuthenticated: () => {
+    // Check both accessToken and refreshToken from localStorage
+    const accessToken = localStorage.getItem("accessToken");
+    return isTokenValid(accessToken);
   },
   reset: () => {
     set({ user: null, accessToken: null, refreshToken: null });

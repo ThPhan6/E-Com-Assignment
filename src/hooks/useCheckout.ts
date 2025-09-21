@@ -4,15 +4,16 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthStore";
 import {
   useCartStore,
-  getProductFromUserCartItems,
   selectorTotalPrice,
+  getProductFromUserCartItems,
 } from "../store/useCartStore";
 import type { OrderProduct } from "../types/checkout";
 import { PATH } from "../lib/route";
 import { useOrderStore } from "../store/useOrderStore";
-import { ApiErrorHandler, retryOperation } from "../utils/apiErrorHandler";
+import { ApiHandler, retryOperation } from "../api/axiosClient";
 import { userApi } from "../service/user.api";
 import { cartApi } from "../service/cart.api";
+import { requireAuth } from "../lib/authGuard";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,13 +28,12 @@ import { throttle } from "lodash";
 export const useCheckout = () => {
   const navigate = useNavigate();
   const { user, accessToken } = useAuthStore();
-  const { userCarts } = useCartStore();
+  const userCarts = useCartStore((state) => state.userCarts);
   const { setLastOrder } = useOrderStore();
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [hasShownReloadWarning, setHasShownReloadWarning] = useState(false);
 
-  const productCart = getProductFromUserCartItems(userCarts);
-  const cartItems = Object.values(productCart);
+  const cartItems = getProductFromUserCartItems(userCarts);
   const totalPrice = selectorTotalPrice(userCarts);
 
   // Check for page reload and show warning
@@ -85,6 +85,11 @@ export const useCheckout = () => {
     shippingData: ShippingInfo,
     paymentData: PaymentInfo
   ) => {
+    // Check authentication before proceeding
+    if (!requireAuth()) {
+      return;
+    }
+
     if (!user || !accessToken) {
       toast.error(
         "Authentication required. Please log in to complete your order."
@@ -94,9 +99,7 @@ export const useCheckout = () => {
     }
 
     setIsProcessingOrder(true);
-    const loadingToast = ApiErrorHandler.showLoading(
-      "Processing your order..."
-    );
+    const loadingToast = ApiHandler.showLoading("Processing your order...");
 
     try {
       // Prepare order data
@@ -126,31 +129,36 @@ export const useCheckout = () => {
       }
 
       // Step 1: Update user information with retry
-      try {
-        await retryOperation(
-          () =>
-            userApi.updateUser(user.id, {
-              address: {
-                city: shippingData.city,
-                state: shippingData.state,
-                country: shippingData.country,
-                address: shippingData.address,
-                postalCode: shippingData.postalCode,
-              },
-              phone: shippingData.phone,
-            }),
-          3,
-          1000
-        );
-      } catch (error) {
-        ApiErrorHandler.showError(error, "update user information");
+      const updatedUser = await retryOperation(
+        () =>
+          userApi.updateUser(user.id, {
+            address: {
+              city: shippingData.city,
+              state: shippingData.state,
+              country: shippingData.country,
+              address: shippingData.address,
+              postalCode: shippingData.postalCode,
+              stateCode: shippingData.stateCode,
+            },
+            phone: shippingData.phone,
+          }),
+        3,
+        1000
+      );
+
+      if (updatedUser.status !== 200) {
+        return;
       }
 
       // Step 2: Clear cart with retry
-      try {
-        await retryOperation(() => cartApi.clearCart(user.id), 3, 1000);
-      } catch (error) {
-        ApiErrorHandler.showError(error, "clear cart");
+      const res = await retryOperation(
+        () => cartApi.clearCart(user.id),
+        3,
+        1000
+      );
+
+      if (res.status !== 200) {
+        return;
       }
 
       // Step 3: Clear local cart state
@@ -160,15 +168,14 @@ export const useCheckout = () => {
       setLastOrder(orderData);
 
       // Dismiss loading toast and show success
-      ApiErrorHandler.dismissToast(loadingToast);
-      ApiErrorHandler.showSuccess("Order placed successfully!");
+      ApiHandler.dismissToast(loadingToast);
+      ApiHandler.showSuccess("Order placed successfully!");
 
       // Step 5: Redirect to confirmation page
       navigate(PATH.ORDER_CONFIRMATION);
     } catch (error) {
-      console.error("Order placement failed:", error);
-      ApiErrorHandler.dismissToast(loadingToast);
-      ApiErrorHandler.showError(error, "place your order");
+      ApiHandler.dismissToast(loadingToast);
+      ApiHandler.showError(error, "place your order");
     } finally {
       setIsProcessingOrder(false);
     }
@@ -223,6 +230,11 @@ export const useCheckoutStep = (
   const selectedMethod = watch("method");
 
   const processConfirmOrder = async () => {
+    // Check authentication before proceeding
+    if (!requireAuth()) {
+      return;
+    }
+
     if (!onDirectCheckout) return;
 
     const data = watch();

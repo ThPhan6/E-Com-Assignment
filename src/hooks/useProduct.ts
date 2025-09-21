@@ -9,6 +9,7 @@ import { debounce } from "lodash";
 import { useCartStore } from "../store/useCartStore";
 import { productApi } from "../service/product.api";
 import { useProductStore } from "../store/useProductStore";
+import { requireAuth } from "../lib/authGuard";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -96,6 +97,7 @@ export const useProduct = () => {
 
   // run after products change
   useEffect(() => {
+    if (!products.length) return;
     tryAutoFill();
   }, [products, tryAutoFill]);
 
@@ -106,7 +108,7 @@ export const useProduct = () => {
         // pass the query directly so fetchProducts doesn't rely on stale state
         fetchProducts(true, q);
       }, 700),
-    []
+    [fetchProducts]
   );
 
   // cleanup debounce on unmount
@@ -124,6 +126,11 @@ export const useProduct = () => {
 
   // New: explicit search handler (no useEffect hook for search)
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Check authentication before proceeding
+    if (!requireAuth()) {
+      return;
+    }
+
     const value = e.target.value;
     setSearchQuery(value); // keep input controlled and in sync
     searchRef.current = value; // keep ref in sync for non-param fetchers
@@ -131,6 +138,11 @@ export const useProduct = () => {
   };
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {
+    // Check authentication before proceeding
+    if (!requireAuth()) {
+      return;
+    }
+
     if (newQuantity < 0) return;
 
     const currentQuantity = getItemQuantity(productId);
@@ -145,7 +157,13 @@ export const useProduct = () => {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
 
-    addItem({ id: product.id, stock: product.stock });
+    addItem({
+      id: product.id,
+      stock: product.stock,
+      price: product.price,
+      title: product.title,
+      thumbnail: product.thumbnail,
+    });
 
     // If newQuantity > 1, update to desired quantity
     if (newQuantity > 1) updateQuantity(productId, newQuantity);

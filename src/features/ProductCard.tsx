@@ -50,13 +50,9 @@ export default function ProductCard({
       </div>
 
       <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2 truncate-2">
           {product.title}
         </h3>
-
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {product.description}
-        </p>
 
         <div className="flex items-center justify-between mb-3">
           <span className="text-lg font-bold text-green-600">
@@ -97,8 +93,7 @@ export default function ProductCard({
             onClick={handleAddToCart}
             disabled={!accessToken || isOutOfStock || currentStock < 0}
             className="px-4 py-2 rounded-lg font-medium transition-colors 
-             bg-green-500 hover:bg-green-600 text-black disabled:text-red
-             disabled:bg-gray-300 disabled:text-gray-500 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-300 disabled:border-none disabled:outline-none disabled:hover:text-red-500"
+             bg-blue-400 hover:bg-blue-500 text-black disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-default disabled:hover:bg-gray-300 disabled:border-none disabled:outline-none disabled:text-red-500 disabled:hover:text-red-600"
           >
             {isOutOfStock ? "Out of Stock" : "Add"}
           </button>

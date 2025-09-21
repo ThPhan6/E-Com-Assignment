@@ -6,19 +6,19 @@ import { PATH } from "../lib/route";
 import { throttle } from "lodash";
 
 export const useLogin = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("emilys");
+  const [password, setPassword] = useState("emilyspass");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { accessToken, isTokenExpiring, setTokens } = useAuthStore();
+  const { accessToken, isAuthenticated, setTokens } = useAuthStore();
 
   // Check if user already has valid token and redirect
   useEffect(() => {
-    if (accessToken && !isTokenExpiring()) {
+    if (accessToken && isAuthenticated()) {
       navigate(PATH.PRODUCTS);
     }
-  }, [accessToken, isTokenExpiring, navigate]);
+  }, [accessToken, isAuthenticated, navigate]);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -26,7 +26,7 @@ export const useLogin = () => {
       const res = await authApi.login({
         username,
         password,
-        expiresInMins: 1, // 1 min
+        expiresInMins: 60,
       });
 
       setTokens(res.data.accessToken, res.data.refreshToken);

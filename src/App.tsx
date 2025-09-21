@@ -11,12 +11,17 @@ import CheckoutPage from "./pages/checkout";
 import OrderConfirmationPage from "./pages/order-confirmation";
 import { PATH } from "./lib/route";
 import Layout from "./features/Layout";
+import ForbiddenPage from "./pages/403";
+import NotFoundPage from "./pages/404";
 
 export default function App() {
   return (
     <Router>
       <Routes>
+        {/* Public / unprotected routes */}
         <Route path={PATH.LOGIN} element={<LoginPage />} />
+        <Route path={PATH.ERROR_403} element={<ForbiddenPage />} />
+        <Route path={PATH.ERROR_404} element={<NotFoundPage />} />
 
         {/* Authenticated routes */}
         <Route
@@ -28,15 +33,16 @@ export default function App() {
         >
           <Route path={PATH.PRODUCTS} element={<ProductListPage />} />
           <Route path={PATH.CHECKOUT} element={<CheckoutPage />} />
+          <Route
+            path={PATH.ORDER_CONFIRMATION}
+            element={<OrderConfirmationPage />}
+          />
+
+          {/* Catch-all inside authenticated routes */}
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
 
-        {/* Unprotected routes */}
-        <Route
-          path={PATH.ORDER_CONFIRMATION}
-          element={<OrderConfirmationPage />}
-        />
-
-        {/* Default redirect */}
+        {/* Catch-all for unauthenticated users */}
         <Route path="*" element={<Navigate to={PATH.LOGIN} />} />
       </Routes>
     </Router>

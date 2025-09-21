@@ -3,17 +3,19 @@ import { persist } from "zustand/middleware";
 import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
 import type { CartItem } from "../types/cart";
-import { useProductStore } from "./useProductStore";
-import type { Product } from "../types/product";
+import { requireAuth } from "../lib/authGuard";
 
-type MinimalCartItem = Pick<CartItem, "id" | "quantity" | "stock">;
+type MinimalCartItem = Pick<
+  CartItem,
+  "id" | "quantity" | "stock" | "price" | "title" | "thumbnail"
+>;
 interface UserCarts {
   [userId: number]: MinimalCartItem[];
 }
 
 interface CartState {
   userCarts: UserCarts;
-  addItem: (item: Pick<CartItem, "id" | "stock">) => void;
+  addItem: (item: Omit<MinimalCartItem, "quantity">) => void;
   removeItem: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
   getItemQuantity: (id: number) => number;
@@ -27,13 +29,16 @@ export const useCartStore = create<CartState>()(
       userCarts: {},
 
       addItem: (item) => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          return;
+        }
+
         const authState = useAuthStore.getState();
         const user = authState.user;
-        const token = authState.accessToken;
 
-        // Check both user and valid token
-        if (!user?.id || !token) {
-          toast.error("Please log in to add items to cart");
+        if (!user?.id) {
+          toast.error("User session expired. Please log in again.");
           return;
         }
 
@@ -60,7 +65,10 @@ export const useCartStore = create<CartState>()(
               {
                 id: item.id,
                 quantity: 1,
-                stock: Math.max(0, item.stock - 1), // Store remaining stock
+                stock: Math.max(0, item.stock - 1),
+                price: item.price,
+                title: item.title,
+                thumbnail: item.thumbnail,
               },
             ];
           }
@@ -72,13 +80,16 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (id) => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          return;
+        }
+
         const authState = useAuthStore.getState();
         const user = authState.user;
-        const token = authState.accessToken;
 
-        // Check both user and valid token
-        if (!user?.id || !token) {
-          toast.error("Please log in to remove items from cart");
+        if (!user?.id) {
+          toast.error("User session expired. Please log in again.");
           return;
         }
 
@@ -95,13 +106,16 @@ export const useCartStore = create<CartState>()(
       },
 
       updateQuantity: (id, quantity) => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          return;
+        }
+
         const authState = useAuthStore.getState();
         const user = authState.user;
-        const token = authState.accessToken;
 
-        // Check both user and valid token
-        if (!user?.id || !token) {
-          toast.error("Please log in to update cart");
+        if (!user?.id) {
+          toast.error("User session expired. Please log in again.");
           return;
         }
 
@@ -144,12 +158,17 @@ export const useCartStore = create<CartState>()(
       },
 
       getItemQuantity: (id) => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          return 0;
+        }
+
         const authState = useAuthStore.getState();
         const user = authState.user;
-        const token = authState.accessToken;
 
-        // Check both user and valid token
-        if (!user?.id || !token) return 0;
+        if (!user?.id) {
+          return 0;
+        }
 
         const userCarts = get().userCarts;
         if (!userCarts[user.id]) return 0;
@@ -159,13 +178,16 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          return;
+        }
+
         const authState = useAuthStore.getState();
         const user = authState.user;
-        const token = authState.accessToken;
 
-        // Check both user and valid token
-        if (!user?.id || !token) {
-          toast.error("Please log in to clear cart");
+        if (!user?.id) {
+          toast.error("User session expired. Please log in again.");
           return;
         }
 
@@ -188,35 +210,27 @@ export const useCartStore = create<CartState>()(
 
 export const getProductFromUserCartItems = (
   userCarts: UserCarts
-): Record<number /** id */, Product> => {
+): MinimalCartItem[] => {
   const user = useAuthStore.getState().user;
-  if (!user?.id || !userCarts[user.id]) return {};
+  if (!user?.id || !userCarts[user.id] || !Array.isArray(userCarts[user.id]))
+    return [];
 
-  const products = useProductStore.getState().products;
-
-  return products.reduce((acc, product) => {
-    const item = userCarts[user.id].find((i) => i.id === product.id);
-    if (item) {
-      acc[product.id] = {
-        ...product,
-        quantity: item.quantity,
-        stock: item.stock,
-      };
-    }
-    return acc;
-  }, {} as Record<number, Product>);
+  return userCarts[user.id];
 };
 
 export const selectorTotalItems = (userCarts: UserCarts) => {
   const user = useAuthStore.getState().user;
-  if (!user?.id || !userCarts[user.id]) return 0;
+  if (!user?.id || !userCarts[user.id] || !Array.isArray(userCarts[user.id]))
+    return 0;
   return userCarts[user.id].reduce((total, item) => total + item.quantity, 0);
 };
 
 export const selectorTotalPrice = (userCarts: UserCarts) => {
-  const productCart = getProductFromUserCartItems(userCarts);
-  return Object.values(productCart).reduce(
-    (total, item) => total + (item.price ?? 0) * (item.quantity ?? 0),
+  const user = useAuthStore.getState().user;
+  if (!user?.id || !userCarts[user.id] || !Array.isArray(userCarts[user.id]))
+    return 0;
+  return userCarts[user.id].reduce(
+    (total, item) => total + item.price * item.quantity,
     0
   );
 };
@@ -234,7 +248,8 @@ export const selectorRemainingStock = (
   userCarts: UserCarts
 ): number => {
   const user = useAuthStore.getState().user;
-  if (!user?.id || !userCarts[user.id]) return originalStock;
+  if (!user?.id || !userCarts[user.id] || !Array.isArray(userCarts[user.id]))
+    return originalStock;
 
   const cartItem = userCarts[user.id].find((item) => item.id === productId);
 

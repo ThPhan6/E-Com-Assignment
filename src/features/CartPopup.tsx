@@ -8,6 +8,7 @@ import {
 import { getLocalStorageValues } from "../lib/helper";
 import { PATH } from "../lib/route";
 import { LazyImage } from "../components/Image";
+import { requireAuth } from "../lib/authGuard";
 
 export default function CartPopup() {
   const navigate = useNavigate();
@@ -29,14 +30,16 @@ export default function CartPopup() {
   };
 
   const handleCheckout = () => {
-    if (!accessToken) {
+    // Check authentication before proceeding
+    if (!requireAuth()) {
       return;
     }
     navigate(PATH.CHECKOUT);
   };
 
   const handleClearCart = () => {
-    if (!accessToken) {
+    // Check authentication before proceeding
+    if (!requireAuth()) {
       return;
     }
     if (window.confirm("Are you sure you want to clear your cart?")) {
@@ -65,7 +68,7 @@ export default function CartPopup() {
         </Popover.Close>
       </div>
 
-      {Object.values(cartItems).length === 0 ? (
+      {cartItems.length === 0 ? (
         <div className="text-center py-8">
           <svg
             className="w-16 h-16 text-gray-300 mx-auto mb-4"
@@ -88,7 +91,7 @@ export default function CartPopup() {
       ) : (
         <>
           <div className="max-h-96 overflow-y-auto space-y-4 mb-4">
-            {Object.values(cartItems).map((item) => (
+            {cartItems.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center justify-between space-x-3 p-3 bg-gray-50 rounded-lg"

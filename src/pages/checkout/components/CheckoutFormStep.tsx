@@ -1,5 +1,4 @@
 import { Controller } from "react-hook-form";
-import CountryStateSelector from "../../../components/CountryStateSelector";
 import { useCheckoutStep } from "../../../hooks/useCheckout";
 import { formatCardNumber, formatExpiry } from "../../../lib/helper";
 import type { PaymentInfo, ShippingInfo } from "../../../types/checkout";
@@ -20,7 +19,6 @@ export default function CheckoutFormStep({
   const {
     register,
     control,
-    setValue,
     errors,
     shouldShowError,
     handleConfirmOrder,
@@ -135,35 +133,78 @@ export default function CheckoutFormStep({
             )}
           </div>
 
-          {/* Country and State Selector */}
+          {/* Country */}
           <div className="md:col-span-2">
-            <CountryStateSelector
-              onCountryChange={(countryName) => {
-                setValue("country", countryName, { shouldValidate: true });
-                setValue("state", "", { shouldValidate: true });
-                setValue("stateCode", "", { shouldValidate: true });
-                setValue("city", "", { shouldValidate: true });
-              }}
-              onStateChange={(stateName, stateCode) => {
-                setValue("state", stateName, { shouldValidate: true });
-                setValue("stateCode", stateCode, { shouldValidate: true });
-                setValue("city", "", { shouldValidate: true });
-              }}
-              onCityChange={(cityName) => {
-                setValue("city", cityName, { shouldValidate: true });
-              }}
-              errors={{
-                country: shouldShowError("country")
-                  ? errors.country?.message
-                  : undefined,
-                state: shouldShowError("state")
-                  ? errors.state?.message
-                  : undefined,
-                city: shouldShowError("city")
-                  ? errors.city?.message
-                  : undefined,
-              }}
+            <label
+              htmlFor="country"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Country *
+            </label>
+            <input
+              id="country"
+              type="text"
+              {...register("country")}
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                shouldShowError("country")
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Enter your country"
             />
+            {shouldShowError("country") && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.country?.message}
+              </p>
+            )}
+          </div>
+
+          {/* State */}
+          <div>
+            <label
+              htmlFor="state"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              State
+            </label>
+            <input
+              id="state"
+              type="text"
+              {...register("state")}
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                shouldShowError("state") ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="Enter your state"
+            />
+            {shouldShowError("state") && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.state?.message}
+              </p>
+            )}
+          </div>
+
+          {/* City */}
+          <div>
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              City
+            </label>
+            <input
+              id="city"
+              type="text"
+              {...register("city")}
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                shouldShowError("city") ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="Enter your city"
+            />
+            {shouldShowError("city") && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.city?.message}
+              </p>
+            )}
           </div>
 
           {/* Postal Code Field */}

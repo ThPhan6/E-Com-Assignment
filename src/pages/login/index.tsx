@@ -6,7 +6,6 @@ export default function LoginPage() {
     setUsername,
     password,
     setPassword,
-    error,
     loading,
     loginHandler,
   } = useLogin();
@@ -63,8 +62,6 @@ export default function LoginPage() {
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
-
-          {error && <p className="text-red-500 text-sm">{error}</p>}
         </form>
       </div>
     </div>
