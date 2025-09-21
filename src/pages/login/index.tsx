@@ -1,44 +1,15 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/useAuthStore";
-import { authApi } from "../../service/auth.api";
-import { PATH } from "../../lib/route";
+import { useLogin } from "../../hooks/useLogin";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("michaelw");
-  const [password, setPassword] = useState("michaelwpass");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const { accessToken, isTokenExpiring, setTokens } = useAuthStore();
-
-  // Check if user already has valid token and redirect
-  useEffect(() => {
-    if (accessToken && !isTokenExpiring()) {
-      navigate(PATH.PRODUCTS);
-    }
-  }, [accessToken, isTokenExpiring, navigate]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await authApi.login({
-        username,
-        password,
-        expiresInMins: 1, // 1 min
-      });
-
-      setTokens(res.data.accessToken, res.data.refreshToken);
-
-      navigate(PATH.PRODUCTS);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    username,
+    setUsername,
+    password,
+    setPassword,
+    error,
+    loading,
+    loginHandler,
+  } = useLogin();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -47,7 +18,7 @@ export default function LoginPage() {
           Welcome 👋
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={loginHandler} className="space-y-5">
           {/* Username */}
           <div>
             <label

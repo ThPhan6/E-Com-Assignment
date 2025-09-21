@@ -1,216 +1,34 @@
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useState } from "react";
-import type { ShippingInfo, PaymentInfo } from "../../types/checkout";
-import CountryStateSelector from "./CountryStateSelector";
-
-// Combined Zod schema for step 1 (shipping + payment)
-const combinedSchema = z
-  .object({
-    // Shipping fields
-    fullName: z
-      .string()
-      .min(2, "Full name must be at least 2 characters long")
-      .max(100, "Full name must be less than 100 characters"),
-    phone: z
-      .string()
-      .regex(/^\d{9,11}$/, "Phone number must be 9-11 digits")
-      .min(9, "Phone number must be at least 9 digits")
-      .max(11, "Phone number must be at most 11 digits"),
-    email: z
-      .string()
-      .email("Please enter a valid email address")
-      .max(100, "Email must be less than 100 characters"),
-    postalCode: z
-      .string()
-      .regex(/^\d+$/, "Postal code must contain only numbers")
-      .min(5, "Postal code must be at least 5 digits")
-      .max(10, "Postal code must be at most 10 digits"),
-    address: z
-      .string()
-      .min(5, "Address must be at least 5 characters long")
-      .max(200, "Address must be less than 200 characters"),
-    city: z
-      .string()
-      .min(2, "City must be at least 2 characters long")
-      .max(100, "City must be less than 100 characters")
-      .optional()
-      .or(z.literal("")),
-    state: z
-      .string()
-      .min(2, "State must be at least 2 characters long")
-      .max(100, "State must be less than 100 characters")
-      .optional()
-      .or(z.literal("")),
-    country: z
-      .string()
-      .min(2, "Country must be at least 2 characters long")
-      .max(100, "Country must be less than 100 characters"),
-    stateCode: z.string().optional(),
-    deliveryNotes: z
-      .string()
-      .max(500, "Delivery notes must be less than 500 characters")
-      .optional(),
-    // Payment fields
-    method: z.enum(["Credit Card", "PayPal", "COD"] as const),
-    cardNumber: z.string().optional(),
-    expiry: z.string().optional(),
-    cvv: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.method === "Credit Card") {
-      if (
-        !data.cardNumber ||
-        !data.cardNumber.match(/^\d{4}-\d{4}-\d{4}-\d{4}$/)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Card number must be in format: 1234-5678-9012-3456",
-          path: ["cardNumber"],
-        });
-      }
-      if (!data.expiry || !data.expiry.match(/^(0[1-9]|1[0-2])\/\d{2}$/)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Expiry must be in format: MM/YY",
-          path: ["expiry"],
-        });
-      } else {
-        // Check if card is expired
-        const [month, year] = data.expiry.split("/");
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear() % 100;
-        const currentMonth = currentDate.getMonth() + 1;
-        const expMonth = parseInt(month);
-        const expYear = parseInt(year);
-
-        if (
-          expYear < currentYear ||
-          (expYear === currentYear && expMonth < currentMonth)
-        ) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Card has expired",
-            path: ["expiry"],
-          });
-        }
-      }
-      if (!data.cvv || !data.cvv.match(/^\d{3,4}$/)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "CVV must be 3-4 digits",
-          path: ["cvv"],
-        });
-      }
-    }
-  });
-
-type CombinedFormData = z.infer<typeof combinedSchema>;
-
+import { Controller } from "react-hook-form";
+import CountryStateSelector from "../../../components/CountryStateSelector";
+import { useCheckoutStep } from "../../../hooks/useCheckout";
+import { formatCardNumber, formatExpiry } from "../../../lib/helper";
+import type { PaymentInfo, ShippingInfo } from "../../../types/checkout";
 interface CheckoutFormStepProps {
   onDirectCheckout: (
     shippingData: ShippingInfo,
     paymentData: PaymentInfo
   ) => Promise<void>;
-  initialShipping?: Partial<ShippingInfo>;
-  initialPayment?: Partial<PaymentInfo>;
   isProcessingOrder?: boolean;
   totalPrice: number;
 }
 
-// Helper function to format card number
-const formatCardNumber = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  const formatted = digits.replace(/(\d{4})(?=\d)/g, "$1-");
-  return formatted.slice(0, 19); // Limit to 19 characters (16 digits + 3 dashes)
-};
-
-// Helper function to format expiry
-const formatExpiry = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length >= 2) {
-    return digits.slice(0, 2) + "/" + digits.slice(2, 4);
-  }
-  return digits;
-};
-
 export default function CheckoutFormStep({
   onDirectCheckout,
-  initialShipping,
-  initialPayment,
   isProcessingOrder = false,
   totalPrice,
 }: CheckoutFormStepProps) {
-  const [showModal, setShowModal] = useState(false);
   const {
     register,
-    watch,
     control,
     setValue,
-    formState: { errors, isValid, dirtyFields, touchedFields },
-  } = useForm<CombinedFormData>({
-    resolver: zodResolver(combinedSchema),
-    mode: "onChange", // Enable real-time validation
-    defaultValues: {
-      fullName: initialShipping?.fullName || "",
-      phone: initialShipping?.phone || "",
-      email: initialShipping?.email || "",
-      postalCode: initialShipping?.postalCode || "",
-      address: initialShipping?.address || "",
-      city: initialShipping?.city || "",
-      state: initialShipping?.state || "",
-      country: initialShipping?.country || "",
-      stateCode: initialShipping?.stateCode || "",
-      deliveryNotes: initialShipping?.deliveryNotes || "",
-      method: initialPayment?.method || "Credit Card",
-      cardNumber: initialPayment?.creditCard?.cardNumber || "",
-      expiry: initialPayment?.creditCard?.expiry || "",
-      cvv: initialPayment?.creditCard?.cvv || "",
-    },
-  });
-
-  const selectedMethod = watch("method");
-
-  const handleConfirmOrder = async () => {
-    if (!isValid || !onDirectCheckout) return;
-
-    const data = watch();
-    const shippingData: ShippingInfo = {
-      fullName: data.fullName,
-      phone: data.phone,
-      email: data.email,
-      postalCode: data.postalCode,
-      address: data.address,
-      city: data.city || "",
-      state: data.state || "",
-      country: data.country,
-      stateCode: data.stateCode,
-      deliveryNotes: data.deliveryNotes,
-    };
-
-    const paymentData: PaymentInfo = {
-      method: data.method,
-      creditCard:
-        data.method === "Credit Card"
-          ? {
-              cardNumber: data.cardNumber!,
-              expiry: data.expiry!,
-              cvv: data.cvv!,
-            }
-          : undefined,
-    };
-
-    setShowModal(false);
-    await onDirectCheckout(shippingData, paymentData);
-  };
-
-  // Helper function to show error only if field is dirty and touched
-  const shouldShowError = (fieldName: keyof CombinedFormData) => {
-    return (
-      dirtyFields[fieldName] && touchedFields[fieldName] && errors[fieldName]
-    );
-  };
+    errors,
+    shouldShowError,
+    handleConfirmOrder,
+    selectedMethod,
+    showModal,
+    setShowModal,
+    isFormValid,
+  } = useCheckoutStep(onDirectCheckout);
 
   return (
     <div className="space-y-8">
@@ -223,25 +41,50 @@ export default function CheckoutFormStep({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
             <label
-              htmlFor="fullName"
+              htmlFor="firstName"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Full Name *
+              First Name *
             </label>
             <input
-              id="fullName"
+              id="firstName"
               type="text"
-              {...register("fullName")}
+              {...register("firstName")}
               className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                shouldShowError("fullName")
+                shouldShowError("firstName")
                   ? "border-red-500"
                   : "border-gray-300"
               }`}
-              placeholder="Enter your full name"
+              placeholder="Enter your first name"
             />
-            {shouldShowError("fullName") && (
+            {shouldShowError("firstName") && (
               <p className="mt-1 text-sm text-red-600">
-                {errors.fullName?.message}
+                {errors.firstName?.message}
+              </p>
+            )}
+          </div>
+
+          <div className="md:col-span-2">
+            <label
+              htmlFor="lastName"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Last Name *
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              {...register("lastName")}
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                shouldShowError("lastName")
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Enter your last name"
+            />
+            {shouldShowError("lastName") && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.lastName?.message}
               </p>
             )}
           </div>
@@ -584,9 +427,9 @@ export default function CheckoutFormStep({
       <button
         type="button"
         onClick={() => setShowModal(true)}
-        disabled={!isValid || isProcessingOrder}
+        disabled={!isFormValid() || isProcessingOrder}
         className={`w-full px-8 py-4 rounded-md font-semibold text-black text-lg ${
-          isValid && !isProcessingOrder
+          isFormValid() && !isProcessingOrder
             ? "bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-lg transform transition-all duration-200 hover:scale-105"
             : "bg-gray-400 cursor-not-allowed"
         }`}
@@ -596,7 +439,7 @@ export default function CheckoutFormStep({
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
             Processing Order...
           </div>
-        ) : isValid ? (
+        ) : isFormValid() ? (
           <div className="flex items-center justify-center">
             <span className="text-xl mr-2">🛒</span>
             Place Order Now

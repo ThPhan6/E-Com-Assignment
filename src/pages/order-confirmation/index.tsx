@@ -103,7 +103,8 @@ export default function OrderConfirmationPage() {
                 </h3>
                 <div className="text-sm text-gray-900 space-y-1">
                   <p className="font-medium">
-                    {lastOrder.shippingInfo.fullName}
+                    {lastOrder.shippingInfo.firstName}{" "}
+                    {lastOrder.shippingInfo.lastName}
                   </p>
                   <p>{lastOrder.shippingInfo.address}</p>
                   <p>

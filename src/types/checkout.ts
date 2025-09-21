@@ -1,6 +1,7 @@
 /** Shipping Info for Checkout */
 export interface ShippingInfo {
-  fullName: string; // Required, min length 2
+  firstName: string; // Required, min length 2
+  lastName: string; // Required, min length 2
   phone: string; // Required, 9-11 digits
   email: string; // Required, valid email
   postalCode: string; // Required, numeric

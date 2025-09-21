@@ -208,9 +208,9 @@ export const getProductFromUserCartItems = (
 };
 
 export const selectorTotalItems = (userCarts: UserCarts) => {
-  return Object.values(userCarts)
-    .flat()
-    .reduce((total, item) => total + (item.quantity ?? 0), 0);
+  const user = useAuthStore.getState().user;
+  if (!user?.id || !userCarts[user.id]) return 0;
+  return userCarts[user.id].reduce((total, item) => total + item.quantity, 0);
 };
 
 export const selectorTotalPrice = (userCarts: UserCarts) => {

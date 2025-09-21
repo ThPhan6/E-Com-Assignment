@@ -79,7 +79,6 @@ export default function CountryStateSelector({
             errors?.country ? "border-red-500 bg-red-50" : "border-gray-300"
           }`}
           onChange={handleCountryChange}
-          onTextChange={(_txt) => console.log(_txt)}
           placeHolder="Select Country"
           defaultValue={country}
         />
@@ -100,7 +99,6 @@ export default function CountryStateSelector({
             errors?.state ? "border-red-500 bg-red-50" : "border-gray-300"
           } ${!country ? "bg-gray-100" : ""}`}
           onChange={handleStateChange}
-          onTextChange={(_txt) => console.log(_txt)}
           defaultValue={currentState}
           placeHolder={
             !country

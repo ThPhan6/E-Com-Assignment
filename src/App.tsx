@@ -4,13 +4,13 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import ProtectedRoute from "./guard/ProtectedRoute";
+import ProtectedRoute from "./features/ProtectedRoute";
 import ProductListPage from "./pages/product";
 import LoginPage from "./pages/login";
 import CheckoutPage from "./pages/checkout";
 import OrderConfirmationPage from "./pages/order-confirmation";
 import { PATH } from "./lib/route";
-import Layout from "./components/Layout";
+import Layout from "./features/Layout";
 
 export default function App() {
   return (
