@@ -105,8 +105,8 @@ export const useProduct = () => {
       debounce((q: string) => {
         // pass the query directly so fetchProducts doesn't rely on stale state
         fetchProducts(true, q);
-      }, 500),
-    [fetchProducts]
+      }, 700),
+    []
   );
 
   // cleanup debounce on unmount

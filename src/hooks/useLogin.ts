@@ -6,8 +6,8 @@ import { PATH } from "../lib/route";
 import { throttle } from "lodash";
 
 export const useLogin = () => {
-  const [username, setUsername] = useState("michaelw");
-  const [password, setPassword] = useState("michaelwpass");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
