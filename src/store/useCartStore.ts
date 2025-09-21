@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
 import type { CartItem } from "../types/cart";
 import { useProductStore } from "./useProductStore";
@@ -26,8 +27,15 @@ export const useCartStore = create<CartState>()(
       userCarts: {},
 
       addItem: (item) => {
-        const user = useAuthStore.getState().user;
-        if (!user?.id) return;
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+        const token = authState.accessToken;
+
+        // Check both user and valid token
+        if (!user?.id || !token) {
+          toast.error("Please log in to add items to cart");
+          return;
+        }
 
         set((state) => {
           const userCart = state.userCarts[user.id] || [];
@@ -64,8 +72,15 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (id) => {
-        const user = useAuthStore.getState().user;
-        if (!user?.id) return;
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+        const token = authState.accessToken;
+
+        // Check both user and valid token
+        if (!user?.id || !token) {
+          toast.error("Please log in to remove items from cart");
+          return;
+        }
 
         set((state) => {
           const userCart = state.userCarts[user.id] || [];
@@ -75,11 +90,20 @@ export const useCartStore = create<CartState>()(
             userCarts: { ...state.userCarts, [user.id]: newMinimal },
           };
         });
+
+        toast.success("Item removed from cart");
       },
 
       updateQuantity: (id, quantity) => {
-        const user = useAuthStore.getState().user;
-        if (!user?.id) return;
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+        const token = authState.accessToken;
+
+        // Check both user and valid token
+        if (!user?.id || !token) {
+          toast.error("Please log in to update cart");
+          return;
+        }
 
         set((state) => {
           let newMinimal: MinimalCartItem[];
@@ -120,8 +144,12 @@ export const useCartStore = create<CartState>()(
       },
 
       getItemQuantity: (id) => {
-        const user = useAuthStore.getState().user;
-        if (!user?.id) return 0;
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+        const token = authState.accessToken;
+
+        // Check both user and valid token
+        if (!user?.id || !token) return 0;
 
         const userCarts = get().userCarts;
         if (!userCarts[user.id]) return 0;
@@ -131,8 +159,15 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
-        const user = useAuthStore.getState().user;
-        if (!user?.id) return;
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+        const token = authState.accessToken;
+
+        // Check both user and valid token
+        if (!user?.id || !token) {
+          toast.error("Please log in to clear cart");
+          return;
+        }
 
         set((state) => ({
           userCarts: { ...state.userCarts, [user.id]: [] },

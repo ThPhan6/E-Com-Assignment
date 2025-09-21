@@ -3,4 +3,5 @@ export const PATH = {
   PRODUCTS: "/products",
   CART: "/cart",
   CHECKOUT: "/checkout",
+  ORDER_CONFIRMATION: "/order-confirmation",
 };

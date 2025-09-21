@@ -1,12 +1,15 @@
 import * as Popover from "@radix-ui/react-popover";
+import { useNavigate } from "react-router-dom";
 import {
   getProductFromUserCartItems,
   selectorTotalPrice,
   useCartStore,
 } from "../store/useCartStore";
 import { getLocalStorageValues } from "../lib/helper";
+import { PATH } from "../lib/route";
 
 export default function CartPopup() {
+  const navigate = useNavigate();
   const userCarts = useCartStore((s) => s.userCarts);
   const cartItems = getProductFromUserCartItems(userCarts);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -28,8 +31,7 @@ export default function CartPopup() {
     if (!accessToken) {
       return;
     }
-    alert("Checkout page coming soon 🚧");
-    // navigate(PATH.CHECKOUT || "/checkout");
+    navigate(PATH.CHECKOUT);
   };
 
   const handleClearCart = () => {
