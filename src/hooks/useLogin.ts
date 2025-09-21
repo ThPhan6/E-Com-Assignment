@@ -4,11 +4,11 @@ import { useAuthStore } from "../store/useAuthStore";
 import { authApi } from "../service/auth.api";
 import { PATH } from "../lib/route";
 import { throttle } from "lodash";
+import { toast } from "react-hot-toast";
 
 export const useLogin = () => {
-  const [username, setUsername] = useState("emilys");
-  const [password, setPassword] = useState("emilyspass");
-  const [error, setError] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { accessToken, isAuthenticated, setTokens } = useAuthStore();
@@ -21,23 +21,26 @@ export const useLogin = () => {
   }, [accessToken, isAuthenticated, navigate]);
 
   const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      const res = await authApi.login({
-        username,
-        password,
-        expiresInMins: 60,
-      });
-
-      setTokens(res.data.accessToken, res.data.refreshToken);
-
-      navigate(PATH.PRODUCTS);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Login failed");
-    } finally {
-      setLoading(false);
+    if (!username || !password) {
+      toast.error("Please enter a username and password");
+      return;
     }
+
+    setLoading(true);
+    const res = await authApi.login({
+      username,
+      password,
+      expiresInMins: 60,
+    });
+
+    if (res?.status !== 200) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    setTokens(res.data.accessToken, res.data.refreshToken);
+    navigate(PATH.PRODUCTS);
   };
 
   const handleSubmitThrottled = useCallback(
@@ -57,7 +60,6 @@ export const useLogin = () => {
     setUsername,
     password,
     setPassword,
-    error,
     loading,
     loginHandler,
   };

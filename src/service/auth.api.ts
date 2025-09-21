@@ -1,5 +1,7 @@
 import axiosClient, { ApiHandler } from "../api/axiosClient";
 import { showLoading, hideLoading } from "../store/useLoadingStore";
+import type { TokenResponse } from "../types/auth";
+import type { IUser } from "../types/user";
 
 export interface LoginPayload {
   username: string;
@@ -8,19 +10,24 @@ export interface LoginPayload {
 }
 
 export const authApi = {
-  login: async (data: LoginPayload) => {
+  login: async (data: LoginPayload): ApiResponse<TokenResponse> => {
     const res = await axiosClient.post("/auth/login", data);
-    ApiHandler.showSuccess("Login successfully");
+    if (res.status === 200) {
+      ApiHandler.showSuccess("Login successfully");
+    }
     return res;
   },
 
-  me: async () => {
+  me: async (): ApiResponse<IUser> => {
     showLoading();
     const res = await axiosClient.get("/auth/me");
     hideLoading();
     return res;
   },
 
-  refresh: (refreshToken: string, expiresInMins = 24) =>
+  refresh: (
+    refreshToken: string,
+    expiresInMins = 24
+  ): ApiResponse<TokenResponse> =>
     axiosClient.post("/auth/refresh", { refreshToken, expiresInMins }),
 };

@@ -99,7 +99,7 @@ export const useCheckout = () => {
     }
 
     setIsProcessingOrder(true);
-    const loadingToast = ApiHandler.showLoading("Processing your order...");
+    const loadingToast = toast.loading("Processing your order...");
 
     try {
       // Prepare order data
@@ -168,14 +168,15 @@ export const useCheckout = () => {
       setLastOrder(orderData);
 
       // Dismiss loading toast and show success
-      ApiHandler.dismissToast(loadingToast);
-      ApiHandler.showSuccess("Order placed successfully!");
+      toast.dismiss(loadingToast);
+      toast.success("Order placed successfully!");
 
       // Step 5: Redirect to confirmation page
       navigate(PATH.ORDER_CONFIRMATION);
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
       ApiHandler.dismissToast(loadingToast);
-      ApiHandler.showError(error, "place your order");
+      ApiHandler.showError(e, "place your order");
     } finally {
       setIsProcessingOrder(false);
     }

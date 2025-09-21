@@ -153,20 +153,6 @@ axiosInstance.interceptors.request.use(async (config) => {
   return config;
 });
 
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const { clearTokens } = useAuthStore.getState();
-      clearTokens();
-      window.location.href = "/login";
-    }
-    // Show toast automatically for all errors
-    ApiHandler.showError(error, "API request");
-    return Promise.reject(error);
-  }
-);
-
 // Wrap axios methods to auto-handle errors and return data
 const api = new Proxy(axiosInstance, {
   get(target, prop: string) {
@@ -193,9 +179,9 @@ const api = new Proxy(axiosInstance, {
           target[prop as keyof typeof target] as any
         )(...args);
         return res;
-      } catch (error) {
-        ApiHandler.showError(error, `${prop.toUpperCase()}`);
-        throw error;
+      } catch (error: any) {
+        ApiHandler.showError(error, error?.message || "Something went wrong");
+        return error;
       }
     };
   },

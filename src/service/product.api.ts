@@ -3,11 +3,16 @@ import type { ProductSearchParams, ProductsResponse } from "../types/product";
 
 export const productApi = {
   // Get all products with pagination and search
-  getProducts: (params: ProductSearchParams = {}) =>
+  getProducts: (
+    params: ProductSearchParams = {}
+  ): ApiResponse<ProductsResponse> =>
     axiosClient.get<ProductsResponse>("/products", { params }),
 
   // Search products by name
-  searchProducts: (query: string, params: ProductSearchParams = {}) =>
+  searchProducts: (
+    query: string,
+    params: ProductSearchParams = {}
+  ): ApiResponse<ProductsResponse> =>
     axiosClient.get<ProductsResponse>(`/products/search`, {
       params: { q: query, ...params },
     }),
