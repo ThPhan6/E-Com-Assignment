@@ -1,7 +1,9 @@
 import { useState } from "react";
+import "react-lazy-load-image-component/src/effects/blur.css";
 import { selectorRemainingStock, useCartStore } from "../store/useCartStore";
 import { getLocalStorageValues } from "../lib/helper";
 import type { Product } from "../types/product";
+import { LazyImage } from "../components/Image";
 
 interface ProductCardProps {
   product: Product;
@@ -40,18 +42,10 @@ export default function ProductCard({
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
       <div className="relative">
-        <img
-          src={
-            product.thumbnail ||
-            "https://via.placeholder.com/300x200?text=No+Image"
-          }
+        <LazyImage
+          src={product.thumbnail}
           alt={product.title}
           className="w-full h-48 object-contain"
-          loading="lazy"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = "https://via.placeholder.com/300x200?text=No+Image";
-          }}
         />
       </div>
 

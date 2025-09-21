@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircleIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 import { useOrderStore } from "../../store/useOrderStore";
 import { PATH } from "../../lib/route";
+import { LazyImage } from "../../components/Image";
 
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
@@ -42,7 +42,19 @@ export default function OrderConfirmationPage() {
         {/* Success Header */}
         <div className="text-center mb-12">
           <div className="mx-auto flex items-center justify-center h-16 w-16 bg-green-100 rounded-full mb-4">
-            <CheckCircleIcon className="h-8 w-8 text-green-600" />
+            <svg
+              className="h-8 w-8 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Order Confirmed!
@@ -152,17 +164,11 @@ export default function OrderConfirmationPage() {
             {lastOrder.products.map((product) => (
               <div key={product.id} className="px-6 py-4 flex items-center">
                 <div className="flex-shrink-0">
-                  {product.thumbnail ? (
-                    <img
-                      src={product.thumbnail}
-                      alt={product.title}
-                      className="w-16 h-16 object-cover rounded-md"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center">
-                      <ShoppingBagIcon className="h-8 w-8 text-gray-400" />
-                    </div>
-                  )}
+                  <LazyImage
+                    src={product.thumbnail}
+                    alt={product.title}
+                    className="w-16 h-16 object-contain rounded-md"
+                  />
                 </div>
                 <div className="ml-4 flex-1">
                   <h3 className="text-sm font-medium text-gray-900">

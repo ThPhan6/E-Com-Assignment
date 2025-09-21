@@ -90,38 +90,40 @@ export default function NavBar() {
           </Popover.Root>
 
           {/* User Dropdown */}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <div className="flex items-center space-x-2 cursor-pointer">
-                <img
-                  src={`https://i.pravatar.cc/40?u=${user.id}`}
-                  alt="avatar"
-                  className="w-8 h-8 rounded-full border-2 border-gray-600"
-                />
-                <span className="text-white capitalize">
-                  {user?.username ?? ""}
-                </span>
-              </div>
-            </DropdownMenu.Trigger>
+          <div className="relative">
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <div className="relative flex items-center space-x-2 cursor-pointer">
+                  <img
+                    src={`https://i.pravatar.cc/40?u=${user.id}`}
+                    alt="avatar"
+                    className="w-8 h-8 rounded-full border-2 border-gray-600"
+                  />
+                  <span className="text-white capitalize">
+                    {user?.username ?? ""}
+                  </span>
+                </div>
+              </DropdownMenu.Trigger>
 
-            <DropdownMenu.Content
-              className="bg-white text-black rounded-md shadow-lg p-2 min-w-[150px]"
-              sideOffset={5}
-            >
-              <DropdownMenu.Item
-                className="cursor-pointer px-3 py-2 rounded hover:bg-gray-100"
-                onSelect={() => alert("Profile page coming soon 🚧")}
+              <DropdownMenu.Content
+                className="bg-white text-black rounded-md shadow-lg p-2 min-w-[150px]"
+                sideOffset={5}
               >
-                Profile
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className="cursor-pointer px-3 py-2 rounded hover:bg-gray-100"
-                onSelect={handleLogout}
-              >
-                Logout
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+                <DropdownMenu.Item
+                  className="cursor-pointer px-3 py-2 rounded hover:bg-gray-100"
+                  onSelect={() => alert("Profile page coming soon 🚧")}
+                >
+                  Profile
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="cursor-pointer px-3 py-2 rounded hover:bg-gray-100"
+                  onSelect={handleLogout}
+                >
+                  Logout
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </div>
         </div>
       </div>
     </>

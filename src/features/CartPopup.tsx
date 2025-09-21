@@ -7,6 +7,7 @@ import {
 } from "../store/useCartStore";
 import { getLocalStorageValues } from "../lib/helper";
 import { PATH } from "../lib/route";
+import { LazyImage } from "../components/Image";
 
 export default function CartPopup() {
   const navigate = useNavigate();
@@ -94,18 +95,10 @@ export default function CartPopup() {
                 title={item.title}
               >
                 <div className="flex-1">
-                  <img
-                    src={
-                      item.thumbnail ||
-                      "https://via.placeholder.com/60x60?text=No+Image"
-                    }
+                  <LazyImage
+                    src={item.thumbnail}
                     alt={item.title}
                     className="w-16 h-16 object-contain rounded"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src =
-                        "https://via.placeholder.com/60x60?text=No+Image";
-                    }}
                   />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-medium text-gray-900 truncate-2">

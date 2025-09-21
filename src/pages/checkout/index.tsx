@@ -1,5 +1,6 @@
 import CheckoutFormStep from "./components/CheckoutFormStep";
 import { useCheckout } from "../../hooks/useCheckout";
+import { LazyImage } from "../../components/Image";
 
 export default function CheckoutPage() {
   const {
@@ -53,10 +54,10 @@ export default function CheckoutPage() {
               <div className="space-y-4 overflow-y-auto">
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center space-x-4">
-                    <img
+                    <LazyImage
                       src={item.thumbnail}
                       alt={item.title}
-                      className="w-16 h-16 object-cover rounded-md"
+                      className="w-16 h-16 object-contain rounded-md"
                     />
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900">
