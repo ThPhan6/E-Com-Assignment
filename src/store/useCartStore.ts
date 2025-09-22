@@ -16,6 +16,10 @@ interface UserCarts {
 interface CartState {
   userCarts: UserCarts;
   addItem: (item: Omit<MinimalCartItem, "quantity">) => void;
+  addItemWithQuantity: (
+    item: Omit<MinimalCartItem, "quantity">,
+    quantity: number
+  ) => void;
   removeItem: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
   getItemQuantity: (id: number) => number;
@@ -31,6 +35,7 @@ export const useCartStore = create<CartState>()(
       addItem: (item) => {
         // Check authentication before proceeding
         if (!requireAuth()) {
+          toast.error("Please log in to add items to cart");
           return;
         }
 
@@ -43,38 +48,98 @@ export const useCartStore = create<CartState>()(
         }
 
         set((state) => {
-          const userCart = state.userCarts[user.id] || [];
-          const existing = userCart.find((i) => i.id === item.id);
+          const currentUserCart = state.userCarts[user.id] || [];
+          const existingItemIndex = currentUserCart.findIndex(
+            (cartItem) => cartItem.id === item.id
+          );
 
-          let newMinimal: MinimalCartItem[];
+          let updatedCart;
+          if (existingItemIndex >= 0) {
+            // Item exists, update quantity
+            updatedCart = [...currentUserCart];
+            const newQuantity = updatedCart[existingItemIndex].quantity + 1;
 
-          if (existing) {
-            // increment quantity
-            newMinimal = userCart.map((i) =>
-              i.id === item.id
-                ? {
-                    ...i,
-                    quantity: i.quantity + 1,
-                    stock: Math.max(0, item.stock - (i.quantity + 1)), // Update remaining stock
-                  }
-                : i
-            );
+            // Check stock availability
+            if (newQuantity > item.stock) {
+              toast.error(`Only ${item.stock} items available in stock`);
+              return state;
+            }
+
+            updatedCart[existingItemIndex] = {
+              ...updatedCart[existingItemIndex],
+              quantity: newQuantity,
+            };
           } else {
-            newMinimal = [
-              ...userCart,
-              {
-                id: item.id,
-                quantity: 1,
-                stock: Math.max(0, item.stock - 1),
-                price: item.price,
-                title: item.title,
-                thumbnail: item.thumbnail,
-              },
-            ];
+            // New item, add to cart
+            if (item.stock <= 0) {
+              toast.error("This item is out of stock");
+              return state;
+            }
+
+            updatedCart = [...currentUserCart, { ...item, quantity: 1 }];
           }
 
           return {
-            userCarts: { ...state.userCarts, [user.id]: newMinimal },
+            userCarts: { ...state.userCarts, [user.id]: updatedCart },
+          };
+        });
+      },
+
+      addItemWithQuantity: (item, quantity) => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          toast.error("Please log in to add items to cart");
+          return;
+        }
+
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+
+        if (!user?.id) {
+          toast.error("User session expired. Please log in again.");
+          return;
+        }
+
+        if (quantity <= 0) {
+          toast.error("Quantity must be greater than 0");
+          return;
+        }
+
+        if (quantity > item.stock) {
+          toast.error(`Only ${item.stock} items available in stock`);
+          return;
+        }
+
+        set((state) => {
+          const currentUserCart = state.userCarts[user.id] || [];
+          const existingItemIndex = currentUserCart.findIndex(
+            (cartItem) => cartItem.id === item.id
+          );
+
+          let updatedCart;
+          if (existingItemIndex >= 0) {
+            // Item exists, update quantity
+            updatedCart = [...currentUserCart];
+            const newQuantity =
+              updatedCart[existingItemIndex].quantity + quantity;
+
+            // Check stock availability
+            if (newQuantity > item.stock) {
+              toast.error(`Only ${item.stock} items available in stock`);
+              return state;
+            }
+
+            updatedCart[existingItemIndex] = {
+              ...updatedCart[existingItemIndex],
+              quantity: newQuantity,
+            };
+          } else {
+            // New item, add to cart with specified quantity
+            updatedCart = [...currentUserCart, { ...item, quantity }];
+          }
+
+          return {
+            userCarts: { ...state.userCarts, [user.id]: updatedCart },
           };
         });
       },
@@ -94,15 +159,14 @@ export const useCartStore = create<CartState>()(
         }
 
         set((state) => {
-          const userCart = state.userCarts[user.id] || [];
-          const newMinimal = userCart.filter((i) => i.id !== id);
+          const currentUserCart = state.userCarts[user.id] || [];
+          const updatedCart = currentUserCart.filter((item) => item.id !== id);
 
+          toast.success("Item removed from cart");
           return {
-            userCarts: { ...state.userCarts, [user.id]: newMinimal },
+            userCarts: { ...state.userCarts, [user.id]: updatedCart },
           };
         });
-
-        toast.success("Item removed from cart");
       },
 
       updateQuantity: (id, quantity) => {
@@ -119,50 +183,46 @@ export const useCartStore = create<CartState>()(
           return;
         }
 
+        if (quantity < 0) {
+          toast.error("Quantity cannot be negative");
+          return;
+        }
+
         set((state) => {
-          let newMinimal: MinimalCartItem[];
+          const currentUserCart = state.userCarts[user.id] || [];
+          const itemIndex = currentUserCart.findIndex((item) => item.id === id);
 
-          if (quantity <= 0) {
-            newMinimal = (state.userCarts[user.id] || []).filter(
-              (i) => i.id !== id
-            );
+          if (itemIndex === -1) {
+            toast.error("Item not found in cart");
+            return state;
+          }
+
+          const item = currentUserCart[itemIndex];
+
+          // Check stock availability
+          if (quantity > item.stock) {
+            toast.error(`Only ${item.stock} items available in stock`);
+            return state;
+          }
+
+          let updatedCart;
+          if (quantity === 0) {
+            // Remove item if quantity is 0
+            updatedCart = currentUserCart.filter((item) => item.id !== id);
+            toast.success("Item removed from cart");
           } else {
-            const userCart = state.userCarts[user.id] || [];
-            const existingIndex = userCart.findIndex((i) => i.id === id);
-
-            if (existingIndex >= 0) {
-              // Update existing item - need to get original stock to calculate remaining
-              newMinimal = userCart.map((i) => {
-                if (i.id === id) {
-                  // Calculate original stock from current data
-                  const originalStock = i.stock + i.quantity;
-                  return {
-                    ...i,
-                    quantity,
-                    stock: Math.max(0, originalStock - quantity), // Update remaining stock
-                  };
-                }
-                return i;
-              });
-            } else {
-              // Item doesn't exist, this shouldn't happen in updateQuantity
-              // but handle it gracefully
-              newMinimal = userCart;
-            }
+            // Update quantity
+            updatedCart = [...currentUserCart];
+            updatedCart[itemIndex] = { ...item, quantity };
           }
 
           return {
-            userCarts: { ...state.userCarts, [user.id]: newMinimal },
+            userCarts: { ...state.userCarts, [user.id]: updatedCart },
           };
         });
       },
 
       getItemQuantity: (id) => {
-        // Check authentication before proceeding
-        if (!requireAuth()) {
-          return 0;
-        }
-
         const authState = useAuthStore.getState();
         const user = authState.user;
 
@@ -170,10 +230,8 @@ export const useCartStore = create<CartState>()(
           return 0;
         }
 
-        const userCarts = get().userCarts;
-        if (!userCarts[user.id]) return 0;
-
-        const item = userCarts[user.id].find((i) => i.id === id);
+        const currentUserCart = get().userCarts[user.id] || [];
+        const item = currentUserCart.find((item) => item.id === id);
         return item ? item.quantity : 0;
       },
 
@@ -253,7 +311,11 @@ export const selectorRemainingStock = (
 
   const cartItem = userCarts[user.id].find((item) => item.id === productId);
 
-  // If item is in cart, return the stored remaining stock
+  // If item is in cart, calculate remaining stock
   // If not in cart, return original stock
-  return cartItem ? cartItem.stock : originalStock;
+  if (cartItem) {
+    return originalStock - cartItem.quantity;
+  }
+
+  return originalStock;
 };

@@ -1,51 +1,21 @@
 import * as Popover from "@radix-ui/react-popover";
-import { useNavigate } from "react-router-dom";
-import {
-  getProductFromUserCartItems,
-  selectorTotalPrice,
-  useCartStore,
-} from "../store/useCartStore";
-import { getLocalStorageValues } from "../lib/helper";
-import { PATH } from "../lib/route";
 import { LazyImage } from "../components/Image";
-import { requireAuth } from "../lib/authGuard";
+import ConfirmationModal from "../components/ConfirmationModal";
+import { useCartPopup } from "../hooks/useCartPopup";
 
 export default function CartPopup() {
-  const navigate = useNavigate();
-  const userCarts = useCartStore((s) => s.userCarts);
-  const cartItems = getProductFromUserCartItems(userCarts);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const removeItem = useCartStore((s) => s.removeItem);
-  const clearCart = useCartStore((s) => s.clearCart);
-  const { accessToken } = getLocalStorageValues(["accessToken"]);
-
-  const totalPrice = selectorTotalPrice(userCarts);
-
-  const handleQuantityChange = (id: number, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeItem(id);
-    } else {
-      updateQuantity(id, newQuantity);
-    }
-  };
-
-  const handleCheckout = () => {
-    // Check authentication before proceeding
-    if (!requireAuth()) {
-      return;
-    }
-    navigate(PATH.CHECKOUT);
-  };
-
-  const handleClearCart = () => {
-    // Check authentication before proceeding
-    if (!requireAuth()) {
-      return;
-    }
-    if (window.confirm("Are you sure you want to clear your cart?")) {
-      clearCart();
-    }
-  };
+  const {
+    cartItems,
+    totalPrice,
+    accessToken,
+    showClearModal,
+    setShowClearModal,
+    handleQuantityChange,
+    handleRemoveItem,
+    handleClearCart,
+    handleConfirmClearCart,
+    handleCheckout,
+  } = useCartPopup();
 
   return (
     <div className="p-6">
@@ -141,7 +111,7 @@ export default function CartPopup() {
                   </button>
                 </div>
                 <button
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => handleRemoveItem(item.id)}
                   className="text-red-500 hover:text-red-700 p-1"
                   disabled={!accessToken}
                 >
@@ -187,6 +157,16 @@ export default function CartPopup() {
           </div>
         </>
       )}
+
+      <ConfirmationModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleConfirmClearCart}
+        title="Clear Cart"
+        description="Are you sure you want to remove all items from your cart? This action cannot be undone."
+        confirmText="Clear Cart"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

@@ -1,43 +1,21 @@
-import { useState } from "react";
 import "react-lazy-load-image-component/src/effects/blur.css";
-import { selectorRemainingStock, useCartStore } from "../store/useCartStore";
-import { getLocalStorageValues } from "../lib/helper";
-import type { Product } from "../types/product";
 import { LazyImage } from "../components/Image";
+import type { Product } from "../types/product";
+import { useProductCart } from "../hooks/useProductCart";
 
 interface ProductCardProps {
   product: Product;
-  onQuantityChange: (productId: number, newQuantity: number) => void;
 }
 
-export default function ProductCard({
-  product,
-  onQuantityChange,
-}: ProductCardProps) {
-  const { accessToken } = getLocalStorageValues(["accessToken"]);
-
-  const userCarts = useCartStore((s) => s.userCarts);
-  const getItemQuantity = useCartStore((s) => s.getItemQuantity);
-
-  // Local quantity state (decoupled from cart)
-  const [localQuantity, setLocalQuantity] = useState(0);
-
-  // Use the shared stock calculation logic for cart quantities only
-  const remainingStockAfterCart = selectorRemainingStock(
-    product.id,
-    product.stock,
-    userCarts
-  );
-  // Current available stock = remaining after cart - local quantity
-  const currentStock = Math.max(0, remainingStockAfterCart - localQuantity);
-  const isOutOfStock = remainingStockAfterCart <= 0;
-
-  const handleAddToCart = () => {
-    // Get current cart quantity and add the local quantity
-    const currentCartQuantity = getItemQuantity(product.id);
-    onQuantityChange(product.id, currentCartQuantity + localQuantity);
-    setLocalQuantity(0);
-  };
+export default function ProductCard({ product }: ProductCardProps) {
+  const {
+    localQuantity,
+    remainingStockAfterCart,
+    isOutOfStock,
+    accessToken,
+    handleAddToCart,
+    handleQuantityChange,
+  } = useProductCart(product);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
@@ -66,7 +44,10 @@ export default function ProductCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setLocalQuantity((q) => Math.max(0, q - 1))}
+              onClick={() => {
+                const newQuantity = Math.max(0, localQuantity - 1);
+                handleQuantityChange(newQuantity);
+              }}
               disabled={!accessToken || isOutOfStock || localQuantity <= 0}
               className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-gray-200 disabled:border-none"
             >
@@ -74,11 +55,13 @@ export default function ProductCard({
             </button>
             <span className="w-8 text-center font-medium">{localQuantity}</span>
             <button
-              onClick={() =>
-                setLocalQuantity((q) =>
-                  q < remainingStockAfterCart ? q + 1 : q
-                )
-              }
+              onClick={() => {
+                const newQuantity =
+                  localQuantity < remainingStockAfterCart
+                    ? localQuantity + 1
+                    : localQuantity;
+                handleQuantityChange(newQuantity);
+              }}
               disabled={
                 !accessToken ||
                 isOutOfStock ||
@@ -91,7 +74,7 @@ export default function ProductCard({
           </div>
           <button
             onClick={handleAddToCart}
-            disabled={!accessToken || isOutOfStock || currentStock < 0}
+            disabled={!accessToken || isOutOfStock}
             className="px-4 py-2 rounded-lg font-medium transition-colors 
              bg-blue-400 hover:bg-blue-500 text-black disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-default disabled:hover:bg-gray-300 disabled:border-none disabled:outline-none disabled:text-red-500 disabled:hover:text-red-600"
           >

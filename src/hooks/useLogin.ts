@@ -1,58 +1,78 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/useAuthStore";
 import { authApi } from "../service/auth.api";
+import { useAuthStore } from "../store/useAuthStore";
 import { PATH } from "../lib/route";
-import { throttle } from "lodash";
-import { toast } from "react-hot-toast";
 
 export const useLogin = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("emilys");
+  const [password, setPassword] = useState("emilyspass");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const { accessToken, isAuthenticated, setTokens } = useAuthStore();
+  const [error, setError] = useState<string | null>(null);
 
-  // Check if user already has valid token and redirect
+  const navigate = useNavigate();
+  const { setTokens, setUser, isAuthenticated } = useAuthStore();
+
+  // Check if user is already authenticated on mount
   useEffect(() => {
-    if (accessToken && isAuthenticated()) {
+    if (isAuthenticated()) {
       navigate(PATH.PRODUCTS);
     }
-  }, [accessToken, isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate]);
 
-  const handleSubmit = async () => {
-    if (!username || !password) {
-      toast.error("Please enter a username and password");
+  const loginHandler = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter both username and password");
       return;
     }
 
     setLoading(true);
-    const res = await authApi.login({
-      username,
-      password,
-      expiresInMins: 60,
-    });
+    setError(null);
 
-    if (res?.status !== 200) {
+    try {
+      // Call login API
+      const response = await authApi.login({
+        username: username.trim(),
+        password: password.trim(),
+        expiresInMins: 60, // 1 hour token expiry
+      });
+
+      if (response.status === 200 && response.data) {
+        const { accessToken, refreshToken } = response.data;
+
+        // Store tokens in auth store
+        setTokens(accessToken, refreshToken);
+
+        // Fetch user profile
+        try {
+          const userResponse = await authApi.me();
+          if (userResponse.status === 200 && userResponse.data) {
+            setUser(userResponse.data);
+          }
+        } catch (userError) {
+          console.warn("Failed to fetch user profile:", userError);
+          // Continue with login even if user profile fetch fails
+        }
+
+        // Navigate to products page
+        navigate(PATH.PRODUCTS);
+      } else {
+        setError("Invalid username or password");
+      }
+    } catch (err: unknown) {
+      console.error("Login error:", err);
+      const errorMessage =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ||
+        (err as { message?: string })?.message ||
+        "Login failed. Please try again.";
+      setError(errorMessage);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setLoading(false);
-    setTokens(res.data.accessToken, res.data.refreshToken);
-    navigate(PATH.PRODUCTS);
-  };
-
-  const handleSubmitThrottled = useCallback(
-    throttle(() => {
-      handleSubmit();
-    }, 1000),
-    [username, password]
-  );
-
-  const loginHandler = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    handleSubmitThrottled();
   };
 
   return {
@@ -61,6 +81,7 @@ export const useLogin = () => {
     password,
     setPassword,
     loading,
+    error,
     loginHandler,
   };
 };

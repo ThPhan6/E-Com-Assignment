@@ -1,173 +1,240 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { debounce } from "lodash";
+import { useProductStore } from "../store/useProductStore";
 import { useCartStore } from "../store/useCartStore";
 import { productApi } from "../service/product.api";
-import { useProductStore } from "../store/useProductStore";
-import { requireAuth } from "../lib/authGuard";
+import type { Product } from "../types/product";
 
+// Constants
 const ITEMS_PER_PAGE = 20;
+const SEARCH_DEBOUNCE_MS = 500;
 
-export const useProduct = () => {
-  const products = useProductStore((s) => s.products);
-  const setProducts = useProductStore((s) => s.setProducts);
+interface UseProductReturn {
+  products: Product[];
+  hasMore: boolean;
+  loading: boolean;
+  searchQuery: string;
+  error: string | null;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  fetchProducts: (isInitial?: boolean) => Promise<void>;
+  handleSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleQuantityChange: (productId: number, quantity: number) => void;
+}
 
-  const [hasMore, setHasMore] = useState(true);
+export const useProduct = (): UseProductReturn => {
+  // State management
+  const { products, setProducts, reset } = useProductStore();
+  const { addItem, updateQuantity } = useCartStore();
+
+  // Local state
   const [loading, setLoading] = useState(false);
-
+  const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
 
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const addItem = useCartStore((s) => s.addItem);
-  const getItemQuantity = useCartStore((s) => s.getItemQuantity);
-
+  // Refs
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const searchRef = useRef<string>(searchQuery);
-  // keep ref in sync
-  useEffect(() => {
-    searchRef.current = searchQuery;
-  }, [searchQuery]);
+  /**
+   * Check if viewport is filled with products
+   * If not filled, we need to fetch more products
+   */
+  const isViewportFilled = useCallback((): boolean => {
+    if (!containerRef.current) return false;
+
+    const container = containerRef.current;
+    const containerHeight = container.offsetHeight;
+    const viewportHeight = window.innerHeight;
+
+    // If container height is less than viewport height, viewport is not filled
+    return containerHeight >= viewportHeight;
+  }, []);
 
   /**
-   * fetchProducts now accepts `queryParam`. If not provided, it reads from `searchRef.current`
-   * so callers can pass the exact query they want to fetch (prevents stale-closure).
+   * Fetch products from API with pagination and search support
    */
   const fetchProducts = useCallback(
-    async (reset = false, queryParam?: string) => {
+    async (isInitial: boolean = false, searchTerm?: string): Promise<void> => {
+      // Prevent multiple simultaneous requests
       if (loading) return;
+
       setLoading(true);
       setError(null);
 
       try {
-        const query = queryParam ?? searchRef.current;
-        const skip = reset ? 0 : products.length; // use products.length, not currentPage
+        const skip = isInitial ? 0 : currentPage * ITEMS_PER_PAGE;
+        const query = searchTerm || searchQuery;
+        const params = {
+          limit: ITEMS_PER_PAGE,
+          skip,
+          ...(query && { q: query }),
+        };
 
-        if (reset) {
-          setProducts([]);
-          setHasMore(true);
-        }
-
+        // Use search API if there's a search query, otherwise use regular products API
         const response = query
-          ? await productApi.searchProducts(query, {
-              limit: ITEMS_PER_PAGE,
-              skip,
-            })
-          : await productApi.getProducts({ limit: ITEMS_PER_PAGE, skip });
+          ? await productApi.searchProducts(query, params)
+          : await productApi.getProducts(params);
 
-        const newProducts = response.data?.products ?? [];
-        const total = response.data?.total ?? newProducts.length;
+        if (response.data) {
+          const { products: newProducts, total } = response.data;
 
-        if (reset) {
-          setProducts(newProducts);
-          setHasMore(newProducts.length < total);
+          if (isInitial) {
+            // Reset products for initial load or new search
+            setProducts(newProducts);
+            setCurrentPage(1);
+          } else {
+            // Append new products for infinite scroll
+            setProducts([...products, ...newProducts]);
+            setCurrentPage((prev) => prev + 1);
+          }
+
+          // Check if we have more products to load
+          const totalLoaded = isInitial
+            ? newProducts.length
+            : products.length + newProducts.length;
+          setHasMore(totalLoaded < total);
+
+          // If viewport is not filled and we have more products, fetch more
+          // Only do this for initial loads to prevent infinite loops
+          if (isInitial && !isViewportFilled() && totalLoaded < total) {
+            // Use setTimeout to avoid infinite recursion
+            setTimeout(() => {
+              fetchProducts(false);
+            }, 100);
+          }
         } else {
-          const updatedProducts = [...products, ...newProducts];
-          setHasMore(updatedProducts.length < total);
-          setProducts(updatedProducts);
+          throw new Error("Failed to fetch products");
         }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_err) {
-        setError("Failed to fetch products");
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "An error occurred while fetching products";
+        setError(errorMessage);
+        console.error("Error fetching products:", err);
       } finally {
         setLoading(false);
       }
     },
-    [loading, products, setProducts]
+    [loading, currentPage, products, searchQuery, setProducts, isViewportFilled]
   );
 
-  // Auto-fetch if content height < window height
-  const tryAutoFill = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  /**
+   * Create a stable debounced search function
+   */
+  const debouncedSearch = useMemo(() => {
+    return debounce((query: string) => {
+      // Reset pagination and products for new search
+      reset();
+      setCurrentPage(0);
+      setHasMore(true);
 
-    const contentHeight = container.scrollHeight;
-    const viewportHeight = window.innerHeight;
+      // Create a new fetch function with the current state
+      const performSearch = async () => {
+        setLoading(true);
+        setError(null);
 
-    if (contentHeight < viewportHeight && hasMore && !loading) {
-      fetchProducts(false);
-    }
-  }, [hasMore, loading, fetchProducts]);
+        try {
+          const params = {
+            limit: ITEMS_PER_PAGE,
+            skip: 0,
+            q: query,
+          };
 
-  // run after products change
+          const response = await productApi.searchProducts(query, params);
+
+          if (response.data) {
+            const { products: newProducts, total } = response.data;
+            setProducts(newProducts);
+            setCurrentPage(1);
+            setHasMore(newProducts.length < total);
+          } else {
+            throw new Error("Failed to fetch products");
+          }
+        } catch (err) {
+          const errorMessage =
+            err instanceof Error
+              ? err.message
+              : "An error occurred while fetching products";
+          setError(errorMessage);
+          console.error("Error fetching products:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      performSearch();
+    }, SEARCH_DEBOUNCE_MS);
+  }, [reset, setProducts, ITEMS_PER_PAGE]);
+
+  /**
+   * Handle search input changes with debouncing
+   */
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const query = e.target.value;
+
+      // Update search query immediately for UI responsiveness
+      setSearchQuery(query);
+
+      // Cancel previous debounced call if exists
+      debouncedSearch.cancel();
+
+      // Start new debounced search with the query
+      debouncedSearch(query);
+    },
+    [debouncedSearch]
+  );
+
+  /**
+   * Handle quantity changes for products (add to cart with proper validation)
+   */
+  const handleQuantityChange = useCallback(
+    (productId: number, quantity: number) => {
+      // Find the product in the current products list
+      const product = products.find((p) => p.id === productId);
+
+      // Validate that we have a product and quantity is greater than 0
+      if (!product || quantity <= 0 || quantity > product.stock) {
+        return;
+      }
+
+      // Add the product to cart first (if not already there)
+      addItem({
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        thumbnail: product.thumbnail,
+        stock: product.stock,
+      });
+
+      // Then update the quantity to the desired amount
+      // This will handle both new items and existing items correctly
+      updateQuantity(productId, quantity);
+    },
+    [products, addItem, updateQuantity]
+  );
+
+  /**
+   * Initial load effect
+   */
   useEffect(() => {
-    if (!products.length) return;
-    tryAutoFill();
-  }, [products, tryAutoFill]);
+    // Only fetch on initial mount if no products are loaded
+    if (products.length === 0 && !loading) {
+      fetchProducts(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array for initial load only
 
-  // Debounced API caller — receives the exact query to fetch
-  const debouncedFetchProducts = useMemo(
-    () =>
-      debounce((q: string) => {
-        // pass the query directly so fetchProducts doesn't rely on stale state
-        fetchProducts(true, q);
-      }, 700),
-    [fetchProducts]
-  );
-
-  // cleanup debounce on unmount
+  /**
+   * Cleanup debounced function on unmount
+   */
   useEffect(() => {
     return () => {
-      debouncedFetchProducts.cancel();
+      debouncedSearch.cancel();
     };
-  }, [debouncedFetchProducts]);
-
-  // initial load on mount (uses current searchRef.current which is empty string initially)
-  useEffect(() => {
-    fetchProducts(true, searchRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally empty: only on mount
-
-  // New: explicit search handler (no useEffect hook for search)
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Check authentication before proceeding
-    if (!requireAuth()) {
-      return;
-    }
-
-    const value = e.target.value;
-    setSearchQuery(value); // keep input controlled and in sync
-    searchRef.current = value; // keep ref in sync for non-param fetchers
-    debouncedFetchProducts(value); // debounce the API call and pass exact query
-  };
-
-  const handleQuantityChange = (productId: number, newQuantity: number) => {
-    // Check authentication before proceeding
-    if (!requireAuth()) {
-      return;
-    }
-
-    if (newQuantity < 0) return;
-
-    const currentQuantity = getItemQuantity(productId);
-
-    // If item exists or newQuantity is zero, just update
-    if (currentQuantity > 0 || newQuantity === 0) {
-      updateQuantity(productId, newQuantity);
-      return;
-    }
-
-    // Item doesn't exist in cart and newQuantity > 0 → add it
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
-
-    addItem({
-      id: product.id,
-      stock: product.stock,
-      price: product.price,
-      title: product.title,
-      thumbnail: product.thumbnail,
-    });
-
-    // If newQuantity > 1, update to desired quantity
-    if (newQuantity > 1) updateQuantity(productId, newQuantity);
-  };
+  }, [debouncedSearch]);
 
   return {
     products,
@@ -177,7 +244,6 @@ export const useProduct = () => {
     error,
     containerRef,
     fetchProducts,
-    setSearchQuery,
     handleSearchChange,
     handleQuantityChange,
   };

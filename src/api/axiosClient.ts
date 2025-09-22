@@ -17,6 +17,12 @@ export interface ApiError {
   status?: number;
   code?: string;
 }
+
+export interface ApiResponse<T> {
+  data: T;
+  status: number;
+  message?: string;
+}
 export class ApiHandler {
   static handleError(error: unknown, operation: string): ApiError {
     let errorMessage = `Failed to ${operation}`;

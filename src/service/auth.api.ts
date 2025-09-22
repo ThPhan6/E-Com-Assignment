@@ -1,33 +1,37 @@
-import axiosClient, { ApiHandler } from "../api/axiosClient";
+import axiosClient from "../api/axiosClient";
 import { showLoading, hideLoading } from "../store/useLoadingStore";
-import type { TokenResponse } from "../types/auth";
 import type { IUser } from "../types/user";
-
-export interface LoginPayload {
-  username: string;
-  password: string;
-  expiresInMins?: number;
-}
+import type { TokenResponse } from "../types/auth";
 
 export const authApi = {
-  login: async (data: LoginPayload): ApiResponse<TokenResponse> => {
-    const res = await axiosClient.post("/auth/login", data);
-    if (res.status === 200) {
-      ApiHandler.showSuccess("Login successfully");
-    }
-    return res;
+  // Login user with username and password
+  login: (credentials: {
+    username: string;
+    password: string;
+    expiresInMins?: number;
+  }): Promise<ApiResponse<TokenResponse>> => {
+    return axiosClient.post("/auth/login", credentials);
   },
 
-  me: async (): ApiResponse<IUser> => {
+  // Get current user profile
+  me: async (): Promise<ApiResponse<IUser>> => {
     showLoading();
-    const res = await axiosClient.get("/auth/me");
-    hideLoading();
-    return res;
+    try {
+      const response = await axiosClient.get("/auth/me");
+      return response;
+    } finally {
+      hideLoading();
+    }
   },
 
+  // Refresh access token
   refresh: (
     refreshToken: string,
-    expiresInMins = 24
-  ): ApiResponse<TokenResponse> =>
-    axiosClient.post("/auth/refresh", { refreshToken, expiresInMins }),
+    expiresInMins: number = 24
+  ): Promise<ApiResponse<TokenResponse>> => {
+    return axiosClient.post("/auth/refresh", {
+      refreshToken,
+      expiresInMins,
+    });
+  },
 };
