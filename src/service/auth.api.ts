@@ -2,6 +2,7 @@ import axiosClient from "../api/axiosClient";
 import { showLoading, hideLoading } from "../store/useLoadingStore";
 import type { IUser } from "../types/user";
 import type { TokenResponse } from "../types/auth";
+import type { AxiosResponse } from "axios";
 
 export const authApi = {
   // Login user with username and password
@@ -9,12 +10,12 @@ export const authApi = {
     username: string;
     password: string;
     expiresInMins?: number;
-  }): Promise<ApiResponse<TokenResponse>> => {
+  }): Promise<AxiosResponse<TokenResponse>> => {
     return axiosClient.post("/auth/login", credentials);
   },
 
   // Get current user profile
-  me: async (): Promise<ApiResponse<IUser>> => {
+  me: async (): Promise<AxiosResponse<IUser>> => {
     showLoading();
     try {
       const response = await axiosClient.get("/auth/me");
@@ -28,7 +29,7 @@ export const authApi = {
   refresh: (
     refreshToken: string,
     expiresInMins: number = 24
-  ): Promise<ApiResponse<TokenResponse>> => {
+  ): Promise<AxiosResponse<TokenResponse>> => {
     return axiosClient.post("/auth/refresh", {
       refreshToken,
       expiresInMins,
