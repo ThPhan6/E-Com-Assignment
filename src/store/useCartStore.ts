@@ -20,6 +20,7 @@ interface CartState {
     item: Omit<MinimalCartItem, "quantity">,
     quantity: number
   ) => void;
+  addToCart: (product: any, quantity: number) => Promise<void>;
   removeItem: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
   getItemQuantity: (id: number) => number;
@@ -136,6 +137,70 @@ export const useCartStore = create<CartState>()(
           } else {
             // New item, add to cart with specified quantity
             updatedCart = [...currentUserCart, { ...item, quantity }];
+          }
+
+          return {
+            userCarts: { ...state.userCarts, [user.id]: updatedCart },
+          };
+        });
+      },
+
+      addToCart: async (product, quantity) => {
+        // Check authentication before proceeding
+        if (!requireAuth()) {
+          throw new Error("Please log in to add items to cart");
+        }
+
+        const authState = useAuthStore.getState();
+        const user = authState.user;
+
+        if (!user?.id) {
+          throw new Error("User session expired. Please log in again.");
+        }
+
+        if (quantity <= 0) {
+          throw new Error("Quantity must be greater than 0");
+        }
+
+        if (quantity > product.stock) {
+          throw new Error(`Only ${product.stock} items available in stock`);
+        }
+
+        // Create cart item from product
+        const cartItem = {
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          thumbnail: product.thumbnail,
+          stock: product.stock,
+          quantity,
+        };
+
+        set((state) => {
+          const currentUserCart = state.userCarts[user.id] || [];
+          const existingItemIndex = currentUserCart.findIndex(
+            (item) => item.id === product.id
+          );
+
+          let updatedCart;
+          if (existingItemIndex >= 0) {
+            // Item exists, update quantity
+            updatedCart = [...currentUserCart];
+            const newQuantity =
+              updatedCart[existingItemIndex].quantity + quantity;
+
+            // Check stock availability
+            if (newQuantity > product.stock) {
+              throw new Error(`Only ${product.stock} items available in stock`);
+            }
+
+            updatedCart[existingItemIndex] = {
+              ...updatedCart[existingItemIndex],
+              quantity: newQuantity,
+            };
+          } else {
+            // New item, add to cart
+            updatedCart = [...currentUserCart, cartItem];
           }
 
           return {
