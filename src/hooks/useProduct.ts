@@ -1,184 +1,205 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
-import { debounce } from "lodash";
-import { useCartStore } from "../store/useCartStore";
-import { productApi } from "../service/product.api";
+// Purpose: Hook for product operations including infinite scroll, search, and viewport filling
+import { useCallback, useEffect, useRef, useMemo } from "react";
+import debounce from "lodash/debounce";
 import { useProductStore } from "../store/useProductStore";
-import { requireAuth } from "../lib/authGuard";
-
-const ITEMS_PER_PAGE = 20;
+import { productApi } from "../service/product.api";
+import { ApiHandler } from "../api/axiosClient";
+import type { ProductSearchParams } from "../types/product";
 
 export const useProduct = () => {
-  const products = useProductStore((s) => s.products);
-  const setProducts = useProductStore((s) => s.setProducts);
+  const {
+    products,
+    total,
+    page,
+    limit,
+    hasMore,
+    loading,
+    error,
+    search,
+    setProducts,
+    addProducts,
+    setLoading,
+    setError,
+    setSearch,
+    resetProducts,
+    incrementPage,
+    setHasMore,
+  } = useProductStore();
 
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const isLoadingRef = useRef(false);
+  const viewportCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const addItem = useCartStore((s) => s.addItem);
-  const getItemQuantity = useCartStore((s) => s.getItemQuantity);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const searchRef = useRef<string>(searchQuery);
-  // keep ref in sync
-  useEffect(() => {
-    searchRef.current = searchQuery;
-  }, [searchQuery]);
-
-  /**
-   * fetchProducts now accepts `queryParam`. If not provided, it reads from `searchRef.current`
-   * so callers can pass the exact query they want to fetch (prevents stale-closure).
-   */
+  // Fetch products with pagination and search
   const fetchProducts = useCallback(
-    async (reset = false, queryParam?: string) => {
-      if (loading) return;
+    async (params: ProductSearchParams = {}) => {
+      if (isLoadingRef.current) return;
+
+      isLoadingRef.current = true;
       setLoading(true);
       setError(null);
 
       try {
-        const query = queryParam ?? searchRef.current;
-        const skip = reset ? 0 : products.length; // use products.length, not currentPage
-
-        if (reset) {
-          setProducts([]);
-          setHasMore(true);
-        }
-
-        const response = query
-          ? await productApi.searchProducts(query, {
-              limit: ITEMS_PER_PAGE,
-              skip,
-            })
-          : await productApi.getProducts({ limit: ITEMS_PER_PAGE, skip });
-
-        const newProducts = response.data?.products ?? [];
-        const total = response.data?.total ?? newProducts.length;
-
-        if (reset) {
-          setProducts(newProducts);
-          setHasMore(newProducts.length < total);
+        let response;
+        if (params.q) {
+          // Use search endpoint when there's a query
+          response = await productApi.searchProducts(params.q, {
+            limit,
+            skip: (page - 1) * limit,
+          });
         } else {
-          const updatedProducts = [...products, ...newProducts];
-          setHasMore(updatedProducts.length < total);
-          setProducts(updatedProducts);
+          // Use regular products endpoint
+          response = await productApi.getProducts({
+            limit,
+            skip: (page - 1) * limit,
+            ...params,
+          });
         }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_err) {
+
+        const { products: newProducts, total: newTotal } = response.data;
+
+        if (page === 1) {
+          setProducts(newProducts, newTotal, true);
+        } else {
+          addProducts(newProducts);
+        }
+
+        setHasMore(newProducts.length === limit);
+      } catch (error) {
         setError("Failed to fetch products");
+        ApiHandler.showError(error, "fetch products");
       } finally {
         setLoading(false);
+        isLoadingRef.current = false;
       }
     },
-    [loading, products, setProducts]
+    [page, limit, setProducts, addProducts, setLoading, setError, setHasMore]
   );
 
-  // Auto-fetch if content height < window height
-  const tryAutoFill = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  // Handle search functionality
+  const handleSearch = useCallback(
+    (searchTerm: string) => {
+      setSearch(searchTerm);
+      resetProducts();
 
-    const contentHeight = container.scrollHeight;
-    const viewportHeight = window.innerHeight;
+      if (searchTerm.trim()) {
+        fetchProducts({ q: searchTerm.trim() });
+      } else {
+        fetchProducts();
+      }
+    },
+    [setSearch, resetProducts, fetchProducts]
+  );
 
-    if (contentHeight < viewportHeight && hasMore && !loading) {
-      fetchProducts(false);
-    }
-  }, [hasMore, loading, fetchProducts]);
-
-  // run after products change
-  useEffect(() => {
-    if (!products.length) return;
-    tryAutoFill();
-  }, [products, tryAutoFill]);
-
-  // Debounced API caller — receives the exact query to fetch
-  const debouncedFetchProducts = useMemo(
+  // TRICKY: Debounced search to avoid excessive API calls
+  const debouncedSearch = useMemo(
     () =>
-      debounce((q: string) => {
-        // pass the query directly so fetchProducts doesn't rely on stale state
-        fetchProducts(true, q);
+      debounce((term: string) => {
+        handleSearch(term);
       }, 700),
-    [fetchProducts]
+    [handleSearch]
   );
 
-  // cleanup debounce on unmount
+  // Load more products for infinite scroll
+  const loadMore = useCallback(() => {
+    if (!hasMore || loading) return;
+
+    incrementPage();
+  }, [hasMore, loading, incrementPage]);
+
+  // TRICKY: Check if viewport is filled and load more if needed
+  const checkViewportFill = useCallback(() => {
+    if (viewportCheckTimeoutRef.current) {
+      clearTimeout(viewportCheckTimeoutRef.current);
+    }
+
+    viewportCheckTimeoutRef.current = setTimeout(() => {
+      // Prefer the grid rendered by InfiniteScroll (has 'grid' + responsive classes)
+      const grid = document.querySelector(
+        ".grid.grid-cols-1"
+      ) as HTMLElement | null;
+      const container =
+        grid || (document.scrollingElement as HTMLElement | null);
+      if (!container) return;
+
+      const containerHeight = container.scrollHeight;
+      const viewportHeight = window.innerHeight;
+      const scrollTop = window.pageYOffset;
+
+      const visibleBottom = scrollTop + viewportHeight;
+      const contentBottom =
+        container.getBoundingClientRect().top + scrollTop + containerHeight;
+
+      // Load more when content bottom is above visible bottom (not filled) or
+      // total content height is less than viewport
+      if (
+        (contentBottom <= visibleBottom || containerHeight < viewportHeight) &&
+        hasMore &&
+        !loading
+      ) {
+        loadMore();
+      }
+    }, 120);
+  }, [hasMore, loading, loadMore]);
+
+  // Initial load and search effect
+  useEffect(() => {
+    if (search.trim()) {
+      handleSearch(search);
+    } else {
+      fetchProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check viewport fill after products change or page load
+  useEffect(() => {
+    // Wait a bit for the DOM to update
+    const timer = setTimeout(() => {
+      if (products.length > 0) {
+        checkViewportFill();
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [products.length, checkViewportFill]);
+
+  // Add window resize listener to check viewport fill
+  useEffect(() => {
+    const handleResize = () => {
+      checkViewportFill();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [checkViewportFill]);
+
+  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      debouncedFetchProducts.cancel();
+      if (viewportCheckTimeoutRef.current) {
+        clearTimeout(viewportCheckTimeoutRef.current);
+      }
     };
-  }, [debouncedFetchProducts]);
-
-  // initial load on mount (uses current searchRef.current which is empty string initially)
-  useEffect(() => {
-    fetchProducts(true, searchRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally empty: only on mount
-
-  // New: explicit search handler (no useEffect hook for search)
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Check authentication before proceeding
-    if (!requireAuth()) {
-      return;
-    }
-
-    const value = e.target.value;
-    setSearchQuery(value); // keep input controlled and in sync
-    searchRef.current = value; // keep ref in sync for non-param fetchers
-    debouncedFetchProducts(value); // debounce the API call and pass exact query
-  };
-
-  const handleQuantityChange = (productId: number, newQuantity: number) => {
-    // Check authentication before proceeding
-    if (!requireAuth()) {
-      return;
-    }
-
-    if (newQuantity < 0) return;
-
-    const currentQuantity = getItemQuantity(productId);
-
-    // If item exists or newQuantity is zero, just update
-    if (currentQuantity > 0 || newQuantity === 0) {
-      updateQuantity(productId, newQuantity);
-      return;
-    }
-
-    // Item doesn't exist in cart and newQuantity > 0 → add it
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
-
-    addItem({
-      id: product.id,
-      stock: product.stock,
-      price: product.price,
-      title: product.title,
-      thumbnail: product.thumbnail,
-    });
-
-    // If newQuantity > 1, update to desired quantity
-    if (newQuantity > 1) updateQuantity(productId, newQuantity);
-  };
+  }, []);
 
   return {
+    // State
     products,
+    total,
+    page,
     hasMore,
     loading,
-    searchQuery,
     error,
-    containerRef,
+    search,
+
+    // Actions
     fetchProducts,
-    setSearchQuery,
-    handleSearchChange,
-    handleQuantityChange,
+    handleSearch,
+    loadMore,
+    debouncedSearch,
+    resetProducts,
   };
 };

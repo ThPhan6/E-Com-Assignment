@@ -1,0 +1,51 @@
+vars:
+  version: v0.1
+  image_name: e-com-assignment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu:latest
+
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nodejs
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Install dependencies
+      uses: npm ci
+
+    - name: Build frontend
+      uses: npm run build
+
+    # - name: Docker login
+    #   uses: docker/login-action@v2
+    #   with:
+    #     username: ${{ secrets.DOCKER_USERNAME }}
+    #     password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # - name: Build Docker image
+    #   run: |
+    #     docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/${{ vars.image_name }}:${{ vars.version }}
+
+    # - name: Push Docker image
+    #   run: |
+    #     docker push ${{ secrets.DOCKER_HUB_USERNAME }}/${{ vars.image_name }}:${{ vars.version }}
+
+    - name: Deploy to Render
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      run: |
+        # Trigger a deploy on Render using their API
+        curl -X POST \
+          -H "Authorization: Bearer $RENDER_API_KEY" \
+          "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys"
