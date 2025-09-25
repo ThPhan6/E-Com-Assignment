@@ -4,7 +4,7 @@ A modern e-commerce application built with React, TypeScript, and Tailwind CSS. 
 
 ## 🚀 Live Demo
 
-**Deployment URL:** https://e-com-assignment-git-main-ths-projects-62ac834c.vercel.app
+**Deployment URL:** https://e-com-assignment.vercel.app
 
 ## 🛠️ Tech Stack
 
