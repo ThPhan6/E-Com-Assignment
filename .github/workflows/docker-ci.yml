@@ -1,6 +1,4 @@
-vars:
-  version: v0.1
-  image_name: e-com-assignment
+name: Deploy App
 
 on:
   push:
