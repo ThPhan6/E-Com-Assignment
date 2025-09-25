@@ -18,10 +18,10 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        uses: npm ci
+        run: npm ci
 
       - name: Build frontend
-        uses: npm run build
+        run: npm run build
 
   deploy:
     runs-on: ubuntu:latest
