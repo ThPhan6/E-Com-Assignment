@@ -3,7 +3,6 @@ import React, { useState, useCallback, useMemo } from "react";
 import debounce from "lodash/debounce";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useProduct } from "../../hooks/useProduct";
-import { showLoading, hideLoading } from "../../store/useLoadingStore";
 import ProductCard from "../../features/ProductCard";
 import { Loading } from "../../features/Loading";
 

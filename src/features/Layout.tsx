@@ -1,11 +1,8 @@
 import { Outlet } from "react-router-dom";
-import NavBar from "./NavBar";
-import { useAuthStore } from "../store/useAuthStore";
 import { Loading } from "./Loading";
+import NavBar from "./NavBar";
 
 export default function Layout() {
-  const user = useAuthStore((s) => s.user);
-
   return (
     <div className="min-h-screen flex flex-col">
       <NavBar />
