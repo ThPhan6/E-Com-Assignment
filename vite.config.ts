@@ -13,5 +13,6 @@ export default defineConfig({
     port: 10000, // or whatever port you want
     open: true,
     host: "0.0.0.0",
+    allowedHosts: ["e-com-assignment.onrender.com"], // ✅ allow Render host
   },
 });
