@@ -1,7 +1,3 @@
-vars:
-  version: v0.1
-  image_name: e-com-assignment
-
 on:
   push:
     branches:
