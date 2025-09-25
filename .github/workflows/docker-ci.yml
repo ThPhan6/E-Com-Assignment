@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu:latest
+    runs-on: ubuntu
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
         run: npm run build
 
   deploy:
-    runs-on: ubuntu:latest
+    runs-on: ubuntu
     needs: build
     steps:
       - name: Checkout repository
